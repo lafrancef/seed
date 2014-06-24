@@ -1,0 +1,147 @@
+function Saver() {
+	this._tmrIdle = 0;
+	this._lastSave = 0;
+	this._isSaving = false;
+	
+	this._dirty = {}
+	this._dirtyCount = 0;
+	
+	this._newArrivals = {};
+	
+	var saver = this;
+	$(document).ready(function() {
+		setInterval(function() { saver.tick.call(saver) }, 1000);
+		
+		$(this).on("mousemove keydown click", function() {
+			saver.resetIdle.call(saver);
+		});
+	});
+}
+
+Saver.prototype.tick = function() {
+	if(this._isSaving) return;
+	
+	this._tmrIdle++;
+	this._lastSave++;
+	
+	var save = false;
+	// If the user was idle for 5 seconds, save her work
+	if(this._tmrIdle >= 5) {
+		this._tmrIdle = 0;
+		save = true;
+	} else if(this._lastSave > 60) { // Save if 60 seconds have elapsed since last save
+		save = true;
+	}
+	
+	if(save && this._dirtyCount > 0)
+		this.saveTree();
+}
+
+Saver.prototype.signalModification = function(id) {
+	if(this._isSaving) { //If we're saving, put off these modifications until we're done
+		if(!(id in this._newArrivals))
+			this._newArrivals[id] = true;
+	} else if(!(id in this._dirty)) { //Otherwise add them to the normal batch
+		this._dirty[id] = true;
+		this._dirtyCount++;
+		if(this._dirtyCount > 10) //If more than 10 nodes were modified, save
+			this.saveTree();
+	}
+}
+
+Saver.prototype.saveTree = function() {
+	//Prevent double-saves
+	if(this._isSaving)
+		return;
+	this._isSaving = true; 
+	
+	var modified = []; //Retrieve the simplified versions of the modified nodes...
+	var deleted = []; //... and the IDs of those that were deleted
+	
+	for(id in this._dirty) {
+		if(id in NODES)
+			modified[modified.length] = NODES[id].simplify();
+		else
+			deleted[deleted.length] = id;
+	}
+	
+	var data = JSON.stringify({ tree: modified, del: deleted });
+	
+	var saver = this;
+	$.ajax("#", {
+		error: function(x, s, e) { saver.saveError.call(saver, x, s, e) },
+		success: function(d, s, x) { saver.saveSuccess.call(saver, d, s, x) },
+		complete: function(x, s) { saver.saveComplete.call(saver, x, s) },
+		type: "PATCH",
+		data: data,
+		contentType: "application/json", // What we are sending
+		dataType: "json" // What we want to receive
+	});
+}
+
+Saver.prototype.saveError = function(xhr, status, error) {
+	//	TODO Do something constructive here
+	//	Would it make sense to move the new arrivals to the dirty pile?
+	alert("Save failed");
+}
+
+Saver.prototype.resetIdle = function() {
+	this._tmrIdle = 0;
+}
+
+var saveTime = 1;
+Saver.prototype.saveSuccess = function(data, status, xhr) {
+	$("#saveMessage")[0].innerHTML = "Save " + (saveTime++);
+
+	this._lastSave = 0;
+	this._dirtyCount = 0;
+	
+	this._dirty = this._newArrivals; 
+	this._newArrivals = {}
+	for(key in this._dirty)
+		this._dirtyCount++;
+		
+	this._isSaving = false;
+}
+
+Saver.prototype.saveComplete = function(xhr, status) {
+	//We don't set issaving here - block when save fails
+}
+
+function loadTree() {
+//TODO Should the call to Node.where really be here?
+<% 
+nodes = Node.where(tree_id: @tree.id)
+if not nodes.nil?
+	# First create all the nodes
+	max_rel_id = -1
+	nodes.each do |node| 
+		if node['relative_id'] > max_rel_id
+			max_rel_id = node['relative_id']
+		end 
+		
+		if node['type'] == 'Node' %>
+			NODES[<%= node['relative_id'] %>] = new Node(<%= node['relative_id'] %>, <%= node['x'] %>, <%= node['y'] %>, "<%= node['part_of_speech'] %>", "<%= node['contents'] %>");
+<%		else %>
+			NODES[<%= node['relative_id'] %>] = new Trace(<%= node['relative_id'] %>, <%= node['x'] %>, <%= node['y'] %>, "<%= node['trace_idx'] %>", "<%= node['part_of_speech'] %>");
+<%		end
+	end # Set the ID counter appropriately %>
+	ID_COUNTER = <%= max_rel_id%> + 1;
+<%	
+# Link the traces
+	nodes.each do |node|
+		if not node['trace_id'].nil? %>
+			NODES[<%= node['relative_id'] %>].linkTrace(<%= node['trace_id'] %>);
+			NODES[<%= node['trace_id'] %>].linkTracee(<%= node['relative_id'] %>);
+<%		end
+	end
+	
+	# Then link them to their parents
+	nodes.each do |node| 
+		if not node['pid'].nil? %>
+			NODES[<%= node['pid'] %>].linkNewChild(<%= node['relative_id'] %>);
+<%		end
+	end
+end %>
+
+}

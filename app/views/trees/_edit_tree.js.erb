@@ -1,0 +1,824 @@
+var NODES = {};
+var EDITED; //Currently edited node
+var SAVER;
+var ID_COUNTER = 0;
+var MAX_TRACE_ID = 'j';
+
+var KinSTAGE;
+var KinLAYER;
+
+var clickedLine = false; //Hack!
+
+function asNode(that) {
+	return NODES[$(that).data('id')];
+}
+
+//TODO Try to remove magic numbers throughout the code
+
+/* Execute a function on all the nodes in the tree. If func is a function name, a method of Node
+will be called, with params. If func is a function, the function will be called with a reference
+to each node (stopping if func returns false). If filter is a function, the function is passed
+the nodes in turn, and func is called with them only if filter returns true. */
+function allNodes(func, params, filter) {
+	for(id in NODES) {
+		if(typeof filter === 'function') {
+			if(!filter(NODES[id])) continue;
+		}
+	
+		var fn = NODES[id][func];
+		if(typeof NODES[id][func] === 'function') {
+			if(NODES[id][func](params) === false)
+				break;
+		} else if(typeof func === 'function') {
+			if(func(NODES[id]) === false)
+				break;
+		} else {
+			throw new Error('allNodes: first parameter must be either a function or a method of Node');
+		}
+	}
+}
+
+function allSelectedNodes(func, params) {
+	allNodes(func, params, function(node) {
+		return node.isSelected();
+	});
+}
+
+function allSelectedLines(func, params) {
+	allNodes(func, params, function(node) {
+		return node.lineSelected();
+	});
+}
+
+function clickLine(e) {
+	var possessingNode = NODES[this.id()];
+	clickedLine = true;
+	
+	if (e.evt.shiftKey == false) {
+		/* No shift key: 
+			- Deselect everything
+			- Select this element if it was not selected, or if
+			  it was part of a multi-selection
+		*/
+		
+		allSelectedNodes('deselect');
+		
+		var numSel = 0;
+		allSelectedLines(function(node) {
+			if(node.lineSelected())
+				numSel++;
+		});
+		
+		var wasSelected = possessingNode.lineSelected();
+		allSelectedLines('deselectLine');
+	
+		if (!wasSelected || numSel > 1)
+			possessingNode.selectLine();
+    } else {
+		if (possessingNode.lineSelected())
+			possessingNode.deselectLine();
+		else
+			possessingNode.selectLine();
+    }
+	
+	KinSTAGE.draw();
+}
+
+function offsetTo10s(num) {
+	var r = num % 10;
+	if(r < 5)
+		return r; //Round down
+	else
+		return -10 + r; //Round up
+}
+
+var middle = function(n) {
+	if(n - Math.floor(n) > 0)
+		return n;
+	else
+		return n + 0.5;
+}
+
+function NodeMixin() {
+
+	this._EMPTY_POS = "<i>N</i>";
+	this._EMPTY_CONTENT = "<i>Node</i>";
+
+	this.startDragging = function(ev, ui) {
+		var me = this;
+		var mainCanvas = document.getElementById("mainCanvas");
+		var mainCanvasPos = mainCanvas.getBoundingClientRect();	
+	
+		if(EDITED != undefined)
+			EDITED.stopEditing();
+
+		allSelectedLines("deselectLine");
+			
+		if (this.isSelected()){
+		
+			//var minTop = ui.position.top, minLeft = ui.position.left;
+			
+			allSelectedNodes(function(node) {
+				node._$node.data("offset", node._$node.offset());
+
+				/*if(node == me) 
+					return;
+
+				if(node._$node.position().top < minTop)
+					minTop = node._$node.position().top;
+				if(node._$node.position().left < minLeft)
+					minLeft = node._$node.position().left;*/
+			});
+			
+			/*this._$node.draggable("option", "containment", [mainCanvasPos.left + ui.position.left - minLeft + 3, 
+								mainCanvasPos.top + ui.position.top - minTop + 3, undefined, undefined]);*/
+		} else {
+			allNodes('deselect');
+			this.select();
+		}
+		this.dragOffset = this._$node.offset();
+	}
+
+	this.drag = function(ev, ui) {
+		
+		this.hasMoved();
+		
+		var dt = ui.position.top - this.dragOffset.top, dl = ui.position.left - this.dragOffset.left;
+		
+		//Compute new position for all selected nodes (except current one)
+		var maxTop = ui.position.top, maxLeft = ui.position.left;
+		var me = this;
+		allSelectedNodes(function(currentNode) {
+			if(currentNode == me)
+				return;
+				
+			var el = currentNode._$node, off = el.data("offset");
+			var newTop = off.top + dt, newLeft = off.left + dl
+			el.data("newPos", {top: newTop, left: newLeft});
+			
+			//Record maximum/minimum coordinates among nodes that are being dragged
+			if(newTop > maxTop)
+				maxTop = newTop;
+			if(newLeft > maxLeft)
+				maxLeft = newLeft;
+		});
+		
+		//Move everything
+		allSelectedNodes(function(currentNode) {
+			if(currentNode == me)
+				return;
+		
+			var el = currentNode._$node;
+			el.css(el.data("newPos"));
+			currentNode.hasMoved();
+		});
+		
+		//Resize the Kinetic stage if some nodes are getting close to going out of bounds
+		var h = KinSTAGE.height(), w = KinSTAGE.width();
+		if(maxTop + this.getDimensions().y + 5 > h) {
+			KinSTAGE.height(h + 300);
+		}
+		if(maxLeft + this.getDimensions().x + 5 > w) {
+			KinSTAGE.width(w + 300);
+		}
+	}
+	
+	this.correctDragPosition = function(pos) {
+		centerLeft = pos.left + (this._$node.outerWidth() / 2);
+		pos.left -= offsetTo10s(centerLeft);
+		
+		centerTop = pos.top + (this._$node.outerHeight() / 2);
+		pos.top -= offsetTo10s(centerTop);
+		
+		return pos;
+	}
+
+	this.dblClick = function(e) {
+		EDITED = this;
+		this.select();
+	}
+
+	this.click = function(e){
+		e.stopPropagation(); //Prevent the main canvas from receiving the click
+		if(EDITED != undefined) {
+			if(EDITED != this)
+				EDITED.stopEditing();
+			else
+				return;
+		}
+		
+		if (e.shiftKey == false) {
+			/* No shift key: 
+				- Deselect everything
+				- Select this element if it was not selected, or if
+				  it was part of a multi-selection
+			*/
+			
+			//Deselect lines
+			allSelectedLines("deselectLine");
+				
+			KinSTAGE.draw();
+			
+			var numSel = 0;
+			allSelectedNodes(function(n) { numSel++; });
+			
+			var wasSelected = this.isSelected();
+		
+			allNodes('deselect');
+			if (!wasSelected || numSel > 1)
+				this.startSelecting();
+		} else {
+			/* Shift key: Toggle selected on this element only */
+			this.toggle();
+		}
+		
+		$( "#mainCanvas" ).data("selectable")._mouseStop(null);
+	}
+	
+	this.startSelecting = function() {
+		this._$node.addClass("ui-selecting");
+	}
+
+	this.select = function() {
+		if(!this._$node.hasClass("ui-selected"))
+			this._$node.addClass("ui-selected");
+	}
+
+	this.deselect = function() {
+		if(this._$node.hasClass("ui-selected"))
+			this._$node.removeClass("ui-selected");
+	}
+
+	this.isSelected = function() {
+		return this._$node.hasClass("ui-selected");
+	}
+
+	this.toggle = function () {
+		if (this._$node.hasClass("ui-selected")) {
+			this._$node.removeClass("ui-selected");
+		}
+		else {
+			this._$node.addClass("ui-selecting");
+		}
+	}
+
+	this.getDimensions = function() {
+		return {x: this._$node.outerWidth(), y: this._$node.outerHeight() }
+	}
+	
+	this.remove = function() {
+		delete NODES[this.id];
+		this._$node.remove();
+		
+		if(this._pid != undefined) {
+			NODES[this._pid].removeChild(this.id);
+			
+			this._lineToParent.destroy();
+			KinSTAGE.draw();
+		}
+		
+		for(child in this._chids) {
+			NODES[child].parentRemoved(); //Children signal modification here
+		}
+		
+		this.signalModification();
+	}
+
+	this.hasMoved = function() {
+		if(this._pid != undefined) {
+			this.updateParentLine();
+		}
+		
+		for(child in this._chids)
+			NODES[child].parentMoved();
+			
+		this.signalModification();
+	}
+
+	this.parentMoved = function() {
+		this.updateParentLine();
+	}
+	
+	this.updateParentLine = function() {
+		
+		var pts = this._lineToParent.points();
+		var theirCenter = NODES[this._pid].getCanvasRelativeCenter();
+		var ourCenter = this.getCanvasRelativeCenter();
+		pts[0] = middle(ourCenter.x) - 2; //TODO change this with the line width
+		pts[1] = middle(ourCenter.y);
+		pts[2] = middle(theirCenter.x) - 2; //TODO change this with the line width
+		pts[3] = middle(theirCenter.y);
+		
+		this._lineToParent.points(pts);
+		KinSTAGE.draw();
+	}
+	
+	this.setParent = function(pid) {
+		this._pid = pid;
+		var ourCenter = this.getCanvasRelativeCenter();
+		var theirCenter = NODES[pid].getCanvasRelativeCenter();
+		
+		if(this._lineToParent != undefined) 
+			this._lineToParent.destroy();
+			
+		this._lineToParent = new Kinetic.Line({
+								points: [middle(ourCenter.x) - 2, middle(ourCenter.y), 
+										middle(theirCenter.x) - 2, middle(theirCenter.y)],
+								stroke: '#000000',
+								strokeWidth: 1,
+								listening: true,
+								id: this.id
+							});
+
+		this._lineToParent.on("click", clickLine);
+
+		//Make a larger line to click on
+		this._lineToParent.hitFunc(function(ctx) {
+			var hitWidth = 16;
+			ctx.beginPath();
+			ctx.moveTo(this.getPoints()[0], this.getPoints()[1]);
+			ctx.lineTo(this.getPoints()[2], this.getPoints()[3]);
+			ctx.closePath();
+			var orgWidth = this.getStrokeWidth();
+			this.setStrokeWidth(hitWidth);
+			ctx.fillStrokeShape(this);
+			this.setStrokeWidth(orgWidth);
+		});
+
+		KinLAYER.add(this._lineToParent);
+		KinSTAGE.draw();
+		
+		this.signalModification();
+	}
+
+	this.hasParent = function() {
+		return this._pid != undefined;
+	}
+
+	this.parentRemoved = function() {
+		this._pid = undefined;
+		this._lineToParent.destroy();
+		this._lineToParent = undefined;
+		KinSTAGE.draw();
+		
+		this.signalModification();
+	}
+
+	this.getCanvasRelativeCenter = function() {
+		var left = parseInt(this._$node.css("left"));
+		var top = parseInt(this._$node.css("top"));
+		
+		return {x: (left + Math.ceil(this._$node.outerWidth() / 2)),
+				y: (top + Math.ceil(this._$node.outerHeight() / 2))};
+	}
+
+	this.lineSelected = function() {
+		return this._lineSelected;
+	}
+
+	this.selectLine = function() {
+		this._lineToParent.stroke("#7FFFD4");
+		this._lineSelected = true;
+	}
+
+	this.deselectLine = function() {
+		this._lineToParent.stroke("#000000");
+		this._lineSelected = false;
+	}
+
+	this.removeLine = function() {
+		NODES[this._pid].removeChild(this.id); // Parent signals modification here
+		this.parentRemoved(); // We signal modification here
+		this._lineSelected = false;
+	}
+
+	this.signalModification = function() {
+		if(SAVER != undefined)
+			SAVER.signalModification(this.id);
+	}
+	
+	this.edit = function(ev, ed) {
+		if(ed.val().length == 0)
+			ed.css("width", "30px");
+		
+		var me = this;
+		ed.autoGrowInput({
+			comfortZone: 5, 
+			minWidth: 30,
+			callback: function() {
+				me.hasMoved();
+			}
+		});
+	}
+	
+	this.basicInit = function(id) {
+		this._chids = {};
+		this._lineToParent = undefined; //Kinetic Line between this node and its parent
+		this._lineSelected = false;
+		this._pid = undefined;
+		this.id = id;
+		this.dragOffset = {left: 0, top: 0};
+	}
+	
+	this.makeEditable = function($elem, empty) {
+		var me = this;
+		$elem.addClass("editable");
+		$elem.editable({
+			toggleFontSize: false,
+			closeOnEnter: true,
+			emptyMessage: empty,
+			callback: function(data) {
+				EDITED = undefined;
+				me.signalModification();
+			}
+		}).dblclick(function(e) { me.dblClick.call(me, e); })
+		.data('id', this.id)
+		.on('edit', function(ev, ed) {
+			me.edit.call(me, ev, ed);
+		});
+	}
+	
+	this.createSkeleton = function(x, y, posStr) {
+		var node = document.createElement('div');
+		node.className = "node";
+		node.style.top = y + "px";
+		node.style.left = x + "px";
+		node.style.position = "absolute";
+		node.id = "nid_" + this.id;
+
+		var pos = document.createElement('div');
+		if(posStr != undefined)
+			pos.innerHTML = posStr;
+
+		node.appendChild(pos);
+		
+		this._$node = $(node);
+		this._$pos = $(pos);
+		
+		var mainCanvas = document.getElementById("mainCanvas");
+		var mainCanvasPos = mainCanvas.getBoundingClientRect();
+		var me = this;
+		this._$node.draggable({
+			start: function(e, u) { me.startDragging.call(me, e, u); },
+			drag: function(e, u) { return me.drag.call(me, e, u); },
+			//stop: function(e, u) { me.stopDragging.call(me, e, u); },
+			//Contain inside the canvas, only on the top and left sides (right and bottom are unlimited)
+			containment: [mainCanvasPos.left + 3, mainCanvasPos.top + 3, undefined, undefined], //TODO Use real padding
+			distance: 5,
+			grid: [10, 10]
+		}).click(function(e) { me.click.call(me, e); })
+		.data('id', this.id);
+		
+		$nodeDrag = this._$node.data("draggable");
+		if($nodeDrag.__proto__.oldGeneratePosition === undefined)
+			$nodeDrag.__proto__.oldGeneratePosition = $nodeDrag._generatePosition;
+
+		$nodeDrag._generatePosition = function(ev) {
+			var pos = me._$node.data("draggable").oldGeneratePosition(ev);
+			return me.correctDragPosition(pos);
+		}
+		
+		this.makeEditable(this._$pos, this._EMPTY_POS);
+		
+		return node;
+	}
+}
+
+function Node(id, x, y, posStr, contentStr) {
+	this.basicInit(id);
+	this._traceId = undefined;
+	
+	var node = this.createSkeleton(x, y, posStr);
+	
+	var content = document.createElement('span');
+	if(contentStr != undefined)
+		content.innerHTML = contentStr;
+	
+	var trace = document.createElement('sub');
+	trace.className = "trace";
+	
+	var container = document.createElement('div');
+	
+	container.appendChild(content);
+	container.appendChild(trace);
+	node.appendChild(container);
+	mainCanvas.appendChild(node);
+	
+	this._$content = $(content);
+	this._$trace = $(trace);
+		
+	this.makeEditable(this._$content, this._EMPTY_CONTENT);
+	
+	if(SAVER != undefined)
+		SAVER.signalModification(this.id);
+}
+
+NodeMixin.call(Node.prototype);
+var mxNoRemove = Node.prototype.remove;
+
+Node.prototype.simplify = function() {
+	var simple = {
+		id: this.id,
+		pid: this._pid,
+		x: parseInt(this._$node.css("left")),
+		y: parseInt(this._$node.css("top")),
+		trace_id: this._traceId,
+		type: "Node"
+	}
+	
+	if(this._$pos[0].innerHTML != this._EMPTY_POS)
+		simple["pos"] = this._$pos[0].innerHTML;
+		
+	if(this._$content[0].innerHTML != this._EMPTY_CONTENT)
+		simple["content"] = this._$content[0].innerHTML;
+		
+	return simple;
+}
+
+Node.prototype.remove = function() {
+	if(this._traceId != undefined)
+		NODES[this._traceId].traceeRemoved();
+	
+	mxNoRemove.call(this);
+}
+
+Node.prototype.stopEditing = function() {
+	if(this._$pos.is(":editing"))
+		this._$pos.editable("close");
+		
+	if(this._$content.is(":editing"))
+		this._$content.editable("close");
+}
+
+Node.prototype.spawnChild = function(isTrace) {
+	var top = parseInt(this._$node.css("top"));
+	var left = parseInt(this._$node.css("left"));
+	
+	//TODO use actual border width
+	var newNode;
+	if(isTrace) {
+		newNode = new Trace(ID_COUNTER, left - 2, top + 70, MAX_TRACE_ID);
+		MAX_TRACE_ID = String.fromCharCode(MAX_TRACE_ID.charCodeAt(0) + 1); //TODO This will fail with a lot of traces
+	} else {
+		newNode = new Node(ID_COUNTER, left - 2, top + 70);
+	}
+	newNode.setParent(this.id);
+	
+	this._chids[newNode.id] = true;
+	
+	NODES[ID_COUNTER] = newNode;
+	
+	ID_COUNTER += 1;
+	this.signalModification();
+	$(mainCanvas).selectable("refresh");
+}
+
+Node.prototype.removeChild = function(chid) {
+	delete this._chids[chid];
+	//Line is taken care of by child
+	//No need to signal modification, since we're not saving chids
+}
+
+Node.prototype.linkNewChild = function(chid) {
+	this._chids[chid] = true;
+	NODES[chid].setParent(this.id); //Child signals its modification here
+	this.signalModification();
+}
+
+Node.prototype.linkTrace = function(traceId) {
+	this._traceId = traceId;
+	this._$trace[0].innerHTML = NODES[traceId].traceId;
+	
+	this.signalModification();
+}
+
+Node.prototype.traceRemoved = function() {
+	this._traceId = undefined;
+	this._$trace[0].innerHTML = "";
+	
+	this.signalModification();
+}
+
+function Trace(id, x, y, traceId, posStr) {
+	this.basicInit(id);
+	this.traceId = traceId;
+	this._traceeId = undefined;
+	
+	var node = this.createSkeleton(x, y, posStr);
+	
+	var trace = document.createElement('div');
+	trace.innerHTML = traceId;
+	
+	node.appendChild(trace);
+	mainCanvas.appendChild(node);
+	
+	if(SAVER != undefined)
+		SAVER.signalModification(this.id);
+}
+
+NodeMixin.call(Trace.prototype);
+var mxTrRemove = Trace.prototype.remove;
+
+Trace.prototype.simplify = function() {
+	var simple = {
+		id: this.id,
+		pid: this._pid,
+		x: parseInt(this._$node.css("left")),
+		y: parseInt(this._$node.css("top")),
+		trace_idx: this.traceId,
+		type: "Trace"
+	}
+	
+	if(this._$pos[0].innerHTML != this._EMPTY_POS)
+		simple["pos"] = this._$pos[0].innerHTML;
+		
+	return simple;
+}
+
+Trace.prototype.stopEditing = function() {
+	if(this._$pos.is(":editing"))
+		this._$pos.editable("close");
+}
+
+Trace.prototype.linkTracee = function(traceeId) {
+	this._traceeId = traceeId;
+	
+	this.signalModification();
+}
+
+Trace.prototype.remove = function() {
+	if(this._traceeId != undefined)
+		NODES[this._traceeId].traceRemoved();
+	
+	mxTrRemove.call(this);
+}
+
+Trace.prototype.traceeRemoved = function() {
+	this._traceeId = undefined;
+}
+
+$(window).load(function(){
+$mainCanvas = $( "#mainCanvas" );
+var mainCanvas = document.getElementById("mainCanvas");
+var mainCanvasPos = mainCanvas.getBoundingClientRect();
+
+KinSTAGE = new Kinetic.Stage({container: "mainCanvas", height: $(mainCanvas).height() - 10, width: $(mainCanvas).width() - 10, listening: true});
+KinLAYER = new Kinetic.Layer({listening: true});
+KinSTAGE.add(KinLAYER);
+
+$mainCanvas.selectable({
+	/* Require a distance to activate selection. This is because we
+	want to override normal clicks. */
+	distance: 1,
+	filter: '.node', //Only select nodes (i.e. don't select KineticJS elements)
+	start: function(e, ui) {
+		if(EDITED != undefined)
+			EDITED.stopEditing();
+	}
+}).click(function(e){
+	/* If we get here, it means we did not click on a child
+	div. Therefore, deselect everything. */		
+	if(!e.shiftKey && !clickedLine) {
+		allNodes('deselect');
+		allSelectedLines("deselectLine");
+			
+		KinSTAGE.draw();
+	}
+
+	clickedLine = false;
+	
+	if (EDITED != undefined)
+		EDITED.stopEditing();
+		
+}).dblclick(function(e) {
+
+	var x = e.pageX - mainCanvasPos.left;
+	var y = e.pageY - mainCanvasPos.top;
+
+	NODES[ID_COUNTER] = new Node(ID_COUNTER, x, y);
+	ID_COUNTER += 1;
+	
+	$(mainCanvas).selectable("refresh");
+});
+
+// Workaround for a bug in jQuery selectable when appendTo is not "body"
+/*
+$mainSelect = $mainCanvas.data("selectable")
+$mainSelect.__proto__.oldMouseStart = $mainSelect._mouseStart
+$mainSelect.__proto__.oldMouseDrag = $mainSelect._mouseDrag
+
+$mainCanvas.data("selectable")._mouseStart = function(ev) {
+	// Inexplicably, the original function uses both clientX/Y and pageX/Y
+	ev.clientX -= mainCanvasPos.left;
+	ev.clientY -= mainCanvasPos.top;
+	
+	ev.pageX -= mainCanvasPos.left;
+	ev.pageY -= mainCanvasPos.top;
+
+	$mainCanvas.data("selectable").oldMouseStart(ev);
+}
+
+$mainCanvas.data("selectable")._mouseDrag = function(ev) {
+	ev.pageX -= mainCanvasPos.left;
+	ev.pageY -= mainCanvasPos.top;
+
+	$mainCanvas.data("selectable").oldMouseDrag(ev);
+}
+*/
+$(document.body).keydown(function(e) {
+	if (e.keyCode == 46) { //Delete key
+		if (EDITED == undefined) {
+			allSelectedNodes('remove');
+			allSelectedLines('removeLine');
+		}
+	} else if (e.keyCode == 27) { //Escape key
+		allNodes('deselect');
+		if (EDITED != undefined)
+			EDITED.stopEditing();
+	}
+});
+
+$("#btnCreateChild").click(function() {
+	allSelectedNodes( function(n) { 
+		if (n instanceof Node) {
+			// Spawn node on first select child only
+			n.spawnChild(false);
+			return false;
+		}
+	});
+});
+
+$("#btnTrace").click(function() {
+
+	allSelectedNodes( function(n) { 
+		if (n instanceof Node) {
+			// Spawn node on first select child only
+			n.spawnChild(true);
+			return false;
+		}
+	});
+});
+
+$("#btnSave").click(function() {
+	SAVER.saveTree();
+});
+
+$("#btnLink").click(function() {
+	var sel1, sel2;
+	
+	// Pick the first two selected nodes
+	allSelectedNodes( function(n) { 
+		if(n.isSelected()) {
+			if(sel1 == undefined)
+				sel1 = n;
+			else {
+				sel2 = n;
+				return false;
+			}
+		}
+	});
+	
+	//We need two selected
+	if(sel1 == undefined || sel2 == undefined)
+		return;
+	
+	//Can't link two traces
+	if(sel1 instanceof Trace && sel2 instanceof Trace)
+		return;
+	
+	if(sel1 instanceof Trace) {
+		sel1.linkTracee(sel2.id);
+		sel2.linkTrace(sel1.id);
+		return;
+	}
+	
+	if(sel2 instanceof Trace) {
+		sel1.linkTrace(sel2.id);
+		sel2.linkTracee(sel1.id);
+		return;
+	}
+		
+	if(!sel1.hasParent() && !sel2.hasParent()) {
+		//If neither has a parent, the one that's higher in the page will get to be the parent
+		if(sel1.getCanvasRelativeCenter().y < sel2.getCanvasRelativeCenter().y)
+			sel1.linkNewChild(sel2.id)
+		else
+			sel2.linkNewChild(sel1.id)
+	
+	} else if (sel1.hasParent() && sel2.hasParent()) {
+		//If both have parents, we can't link them together
+		return; //TODO have feedback here
+	} else if (sel1.hasParent()) {
+		//If only one has a parent, then that one becomes the parent of the other
+		//(since the reverse is impossible)
+		sel1.linkNewChild(sel2.id)
+	} else if (sel2.hasParent()) {
+		sel2.linkNewChild(sel1.id)
+	}
+});
+
+loadTree();
+SAVER = new Saver();
+$(mainCanvas).selectable("refresh");
+
+});

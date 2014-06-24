@@ -1,0 +1,3 @@
+class Trace < Node
+  
+end

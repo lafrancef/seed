@@ -1,0 +1,23 @@
+<% content_for :head do %>
+	<%= javascript_include_tag "jquery.editable.min" %>
+	<%= javascript_include_tag "kinetic-v5.1.0.min" %>
+	<%= javascript_include_tag "text-grow" %>
+	<script type="text/javascript">
+		<%= render "trees/save_load_tree.js" %>
+		<%= render "trees/edit_tree.js" %>
+	</script>
+<% end %>
+
+<div class="elemsContainer">
+	<div id="operationsMenu" class="zone">
+		<h3> <%= @tree.name %></h3>
+		<input id="btnLink" type="submit" value="Link"/><br/>
+		<input id="btnCreateChild" type="submit" value="Child"/><br/>
+		<input id="btnSave" type="submit" value="Save"/><br/>
+		<input id="btnTrace" type="submit" value="Trace"/><br/>
+		<span id="saveMessage"></span>
+	</div>
+
+	<div id="mainCanvas" class="zone" >
+	</div>
+<div>

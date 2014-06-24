@@ -1,0 +1,58 @@
+$bodyMargin: 8px;
+$zoneBorder: 2px;
+$operationsMenuWidth: 150px;
+$mainCanvasHeight: 300px;
+$zoneBgColor: #E8FFFF;
+
+#mainCanvas .ui-selecting { border: 2px solid #AAA; }
+#mainCanvas .ui-selected { border: 2px solid aquamarine; }
+
+body {
+	margin: $bodyMargin;
+}
+
+#operationsMenu {
+	float: left;
+	width: $operationsMenuWidth;	
+}
+
+#mainCanvas {
+	position: relative; 
+	overflow: auto;
+	height: $mainCanvasHeight;
+	margin-left: $operationsMenuWidth + 12px;
+	z-index: 50;
+	background-color: $zoneBgColor;
+}
+
+.zone {
+	border: solid $zoneBorder #CCC;
+	border-radius: 4px;
+	padding: 3px; 
+}
+
+.node {
+	position: absolute; 
+	margin: 0; 
+	padding:5px; 
+	border: solid 2px #FFFFFF;
+	width: 50px;
+	background-color: #FFFFFF;
+	text-align:center;
+	display:table;
+}
+
+.trace {
+	font-style: italic;
+}
+
+.editable {
+	white-space: nowrap;
+}
+
+/* Used for the selection lasso */
+.ui-selectable-helper {
+	position: absolute; 
+	z-index: 100; 
+	border:1px dotted black;
+}
