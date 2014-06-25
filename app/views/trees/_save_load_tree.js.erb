@@ -121,9 +121,9 @@ if not nodes.nil?
 		end 
 		
 		if node['type'] == 'Node' %>
-			NODES[<%= node['relative_id'] %>] = new Node(<%= node['relative_id'] %>, <%= node['x'] %>, <%= node['y'] %>, "<%= node['part_of_speech'] %>", "<%= node['contents'] %>");
+			NODES[<%= node['relative_id'] %>] = new Node(<%= node['relative_id'] %>, <%= node['x'] %>, <%= node['y'] %>, "<%= node['part_of_speech'] %>", "<%= node['contents'] %>", <%= node['theta'] %>, <%= node['case_marker'] %>);
 <%		else %>
-			NODES[<%= node['relative_id'] %>] = new Trace(<%= node['relative_id'] %>, <%= node['x'] %>, <%= node['y'] %>, "<%= node['trace_idx'] %>", "<%= node['part_of_speech'] %>");
+			NODES[<%= node['relative_id'] %>] = new Trace(<%= node['relative_id'] %>, <%= node['x'] %>, <%= node['y'] %>, "<%= node['trace_idx'] %>", "<%= node['part_of_speech'] %>", <%= node['theta'] %>, <%= node['case_marker'] %>);
 <%		end
 	end # Set the ID counter appropriately %>
 	ID_COUNTER = <%= max_rel_id%> + 1;

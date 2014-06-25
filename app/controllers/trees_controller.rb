@@ -37,8 +37,10 @@ class TreesController < ApplicationController
 			node_obj.y = node_json["y"]
 			node_obj.pid = node_json["pid"]
 			
-			node_obj.type = node_json["type"]
+			node_obj.case_marker = node_json["case"]
+			node_obj.theta = node_json["theta"]
 			
+			node_obj.type = node_json["type"]
 			if node_json["type"] == "Node"
 				node_obj.contents = node_json["content"]
 				node_obj.trace_id = node_json["trace_id"]

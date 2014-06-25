@@ -2,7 +2,7 @@ var NODES = {};
 var EDITED; //Currently edited node
 var SAVER;
 var ID_COUNTER = 0;
-var MAX_TRACE_ID = 'j';
+var MAX_TRACE_ID = "i";
 
 var KinSTAGE;
 var KinLAYER;
@@ -47,6 +47,12 @@ function allSelectedNodes(func, params) {
 function allSelectedLines(func, params) {
 	allNodes(func, params, function(node) {
 		return node.lineSelected();
+	});
+}
+
+function allTraces(func, params) {
+	allNodes(func, params, function(node) {
+		return (node instanceof Trace);
 	});
 }
 
@@ -101,7 +107,7 @@ var middle = function(n) {
 
 function NodeMixin() {
 
-	this._EMPTY_POS = "<i>N</i>";
+	this._EMPTY_POS = "<i>X</i>";
 	this._EMPTY_CONTENT = "<i>Node</i>";
 
 	this.startDragging = function(ev, ui) {
@@ -156,7 +162,7 @@ function NodeMixin() {
 			var newTop = off.top + dt, newLeft = off.left + dl
 			el.data("newPos", {top: newTop, left: newLeft});
 			
-			//Record maximum/minimum coordinates among nodes that are being dragged
+			//Record maximum coordinates among nodes that are being dragged
 			if(newTop > maxTop)
 				maxTop = newTop;
 			if(newLeft > maxLeft)
@@ -392,6 +398,38 @@ function NodeMixin() {
 		this._lineSelected = false;
 	}
 
+	this.toggleTheta = function() {
+		this._theta = !this._theta;
+		this.updateThetaVisual();
+		this.signalModification();
+	}
+	
+	this.updateThetaVisual = function() {
+		if(this._theta) {
+			this._$theta[0].innerHTML = "\u03B8";
+		} else {
+			this._$theta[0].innerHTML = "";
+		}
+		
+		this._$theta.css("margin-left", (this._theta ? "5px" : "0px"));
+	}
+	
+	this.toggleCase = function() {
+		this._case = !this._case;
+		this.updateCaseVisual();
+		this.signalModification();
+	}
+	
+	this.updateCaseVisual = function() {
+		if(this._case) {
+			this._$case[0].innerHTML = "\u03F0";
+		} else {
+			this._$case[0].innerHTML = "";
+		}
+		
+		this._$case.css("margin-left", (this._case ? "3px" : "0px"));
+	}
+	
 	this.signalModification = function() {
 		if(SAVER != undefined)
 			SAVER.signalModification(this.id);
@@ -411,12 +449,15 @@ function NodeMixin() {
 		});
 	}
 	
-	this.basicInit = function(id) {
+	this.basicInit = function(id, theta, _case) {
 		this._chids = {};
 		this._lineToParent = undefined; //Kinetic Line between this node and its parent
 		this._lineSelected = false;
 		this._pid = undefined;
 		this.id = id;
+		this._theta = theta != undefined ? theta : false;
+		this._case = _case != undefined ? _case : false;
+		
 		this.dragOffset = {left: 0, top: 0};
 	}
 	
@@ -446,14 +487,27 @@ function NodeMixin() {
 		node.style.position = "absolute";
 		node.id = "nid_" + this.id;
 
-		var pos = document.createElement('div');
+		var pos = document.createElement('span');
 		if(posStr != undefined)
 			pos.innerHTML = posStr;
 
-		node.appendChild(pos);
+		var theta = document.createElement('span');
+		theta.className = "thetaRole";
+		
+		var caseMarker = document.createElement('span');
+		caseMarker.className = "caseMarker";
+		
+		var container = document.createElement('div');
+		container.appendChild(pos);
+		container.appendChild(theta);
+		container.appendChild(caseMarker);
+		
+		node.appendChild(container);
 		
 		this._$node = $(node);
 		this._$pos = $(pos);
+		this._$theta = $(theta);
+		this._$case = $(caseMarker);
 		
 		var mainCanvas = document.getElementById("mainCanvas");
 		var mainCanvasPos = mainCanvas.getBoundingClientRect();
@@ -480,12 +534,15 @@ function NodeMixin() {
 		
 		this.makeEditable(this._$pos, this._EMPTY_POS);
 		
+		this.updateCaseVisual();
+		this.updateThetaVisual();
+		
 		return node;
 	}
 }
 
-function Node(id, x, y, posStr, contentStr) {
-	this.basicInit(id);
+function Node(id, x, y, posStr, contentStr, theta, _case) {
+	this.basicInit(id, theta, _case);
 	this._traceId = undefined;
 	
 	var node = this.createSkeleton(x, y, posStr);
@@ -522,6 +579,8 @@ Node.prototype.simplify = function() {
 		pid: this._pid,
 		x: parseInt(this._$node.css("left")),
 		y: parseInt(this._$node.css("top")),
+		"case": this._case,
+		theta: this._theta,
 		trace_id: this._traceId,
 		type: "Node"
 	}
@@ -557,8 +616,7 @@ Node.prototype.spawnChild = function(isTrace) {
 	//TODO use actual border width
 	var newNode;
 	if(isTrace) {
-		newNode = new Trace(ID_COUNTER, left - 2, top + 70, MAX_TRACE_ID);
-		MAX_TRACE_ID = String.fromCharCode(MAX_TRACE_ID.charCodeAt(0) + 1); //TODO This will fail with a lot of traces
+		newNode = new Trace(ID_COUNTER, left - 2, top + 70, Trace.generateId());
 	} else {
 		newNode = new Node(ID_COUNTER, left - 2, top + 70);
 	}
@@ -599,8 +657,8 @@ Node.prototype.traceRemoved = function() {
 	this.signalModification();
 }
 
-function Trace(id, x, y, traceId, posStr) {
-	this.basicInit(id);
+function Trace(id, x, y, traceId, posStr, theta, _case) {
+	this.basicInit(id, theta, _case);
 	this.traceId = traceId;
 	this._traceeId = undefined;
 	
@@ -619,6 +677,26 @@ function Trace(id, x, y, traceId, posStr) {
 NodeMixin.call(Trace.prototype);
 var mxTrRemove = Trace.prototype.remove;
 
+Trace.generateId = function() {
+	
+	var maxId = MAX_TRACE_ID.charCodeAt(0);
+	var start = "i".charCodeAt(0);
+	
+	var ids = [];
+	allTraces(function(tr) {
+		ids[tr.traceId.charCodeAt(0) - start] = true;
+	});
+	
+	for(i = 0 ; i < ids.length ; i++) {
+		if(ids[i] === undefined)
+			return String.fromCharCode(i + start);
+	}
+	
+	if(MAX_TRACE_ID != "i")
+		MAX_TRACE_ID = String.fromCharCode(maxId + 1);
+	return MAX_TRACE_ID;
+}
+
 Trace.prototype.simplify = function() {
 	var simple = {
 		id: this.id,
@@ -626,6 +704,8 @@ Trace.prototype.simplify = function() {
 		x: parseInt(this._$node.css("left")),
 		y: parseInt(this._$node.css("top")),
 		trace_idx: this.traceId,
+		"case": this._case,
+		theta: this._theta,
 		type: "Trace"
 	}
 	
@@ -701,30 +781,6 @@ $mainCanvas.selectable({
 	$(mainCanvas).selectable("refresh");
 });
 
-// Workaround for a bug in jQuery selectable when appendTo is not "body"
-/*
-$mainSelect = $mainCanvas.data("selectable")
-$mainSelect.__proto__.oldMouseStart = $mainSelect._mouseStart
-$mainSelect.__proto__.oldMouseDrag = $mainSelect._mouseDrag
-
-$mainCanvas.data("selectable")._mouseStart = function(ev) {
-	// Inexplicably, the original function uses both clientX/Y and pageX/Y
-	ev.clientX -= mainCanvasPos.left;
-	ev.clientY -= mainCanvasPos.top;
-	
-	ev.pageX -= mainCanvasPos.left;
-	ev.pageY -= mainCanvasPos.top;
-
-	$mainCanvas.data("selectable").oldMouseStart(ev);
-}
-
-$mainCanvas.data("selectable")._mouseDrag = function(ev) {
-	ev.pageX -= mainCanvasPos.left;
-	ev.pageY -= mainCanvasPos.top;
-
-	$mainCanvas.data("selectable").oldMouseDrag(ev);
-}
-*/
 $(document.body).keydown(function(e) {
 	if (e.keyCode == 46) { //Delete key
 		if (EDITED == undefined) {
@@ -761,6 +817,14 @@ $("#btnTrace").click(function() {
 
 $("#btnSave").click(function() {
 	SAVER.saveTree();
+});
+
+$("#btnTheta").click(function() {
+	allSelectedNodes("toggleTheta");
+});
+
+$("#btnCase").click(function() {
+	allSelectedNodes("toggleCase");
 });
 
 $("#btnLink").click(function() {

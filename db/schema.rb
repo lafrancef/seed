@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20140619231402) do
+ActiveRecord::Schema.define(version: 20140625014733) do
 
   create_table "nodes", force: true do |t|
     t.integer  "tree_id"
@@ -26,6 +26,8 @@ ActiveRecord::Schema.define(version: 20140619231402) do
     t.string   "type"
     t.integer  "trace_id"
     t.string   "trace_idx",      limit: 3
+    t.boolean  "case_marker"
+    t.boolean  "theta"
   end
 
   add_index "nodes", ["tree_id"], name: "index_nodes_on_tree_id"
