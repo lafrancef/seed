@@ -563,6 +563,7 @@ function Node(id, x, y, posStr, contentStr, theta, _case) {
 	
 	this._$content = $(content);
 	this._$trace = $(trace);
+	this._$container = $(container);
 		
 	this.makeEditable(this._$content, this._EMPTY_CONTENT);
 	
@@ -592,6 +593,16 @@ Node.prototype.simplify = function() {
 		simple["content"] = this._$content[0].innerHTML;
 		
 	return simple;
+}
+
+Node.prototype.hideContent = function() {
+	this._$container.css("display", "none");
+	this.hasMoved();
+}
+
+Node.prototype.showContent = function() {
+	this._$container.css("display", "block");
+	this.hasMoved();
 }
 
 Node.prototype.remove = function() {
@@ -628,19 +639,30 @@ Node.prototype.spawnChild = function(isTrace) {
 	
 	ID_COUNTER += 1;
 	this.signalModification();
+	
+	this.hideContent();
 	$(mainCanvas).selectable("refresh");
 }
 
 Node.prototype.removeChild = function(chid) {
 	delete this._chids[chid];
 	//Line is taken care of by child
-	//No need to signal modification, since we're not saving chids
+	
+	//Show our content if we have no more children
+	var count = 0;
+	for(chid in this._chids)
+		count++;
+		
+	if(count == 0)
+		this.showContent();
 }
 
 Node.prototype.linkNewChild = function(chid) {
 	this._chids[chid] = true;
 	NODES[chid].setParent(this.id); //Child signals its modification here
 	this.signalModification();
+	
+	this.hideContent();
 }
 
 Node.prototype.linkTrace = function(traceId) {
@@ -665,7 +687,7 @@ function Trace(id, x, y, traceId, posStr, theta, _case) {
 	var node = this.createSkeleton(x, y, posStr);
 	
 	var trace = document.createElement('div');
-	trace.innerHTML = traceId;
+	trace.innerHTML = "<i>t</i><sub>" + traceId + "</sub>";
 	
 	node.appendChild(trace);
 	mainCanvas.appendChild(node);

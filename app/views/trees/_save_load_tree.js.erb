@@ -109,9 +109,8 @@ Saver.prototype.saveComplete = function(xhr, status) {
 }
 
 function loadTree() {
-//TODO Should the call to Node.where really be here?
 <% 
-nodes = Node.where(tree_id: @tree.id)
+nodes = @tree.nodes
 if not nodes.nil?
 	# First create all the nodes
 	max_rel_id = -1

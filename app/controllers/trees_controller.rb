@@ -15,6 +15,10 @@ class TreesController < ApplicationController
 	# Show the tree itself
 	def show
 		@tree = Tree.find(params[:id])
+		respond_to do |format|
+			format.html
+			format.txt { render plain: @tree.export_txt }
+		end
 		# TODO Do something if we can't find the tree
 	end
 	
