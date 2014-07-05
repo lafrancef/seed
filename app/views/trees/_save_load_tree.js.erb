@@ -141,6 +141,25 @@ if not nodes.nil?
 			NODES[<%= node['pid'] %>].linkNewChild(<%= node['relative_id'] %>);
 <%		end
 	end
-end %>
+end 
+
+if @import %>
+	var layout = function(root) {
+		root.prettyTreePrelim();
+		root.prettyTreeReal(0);
+		
+		return false; //Only execute on the root
+	}
+	
+	var rootOnly = function(node) {
+		return node._pid == undefined;
+	}
+	
+	allNodes(layout, undefined, rootOnly);
+<%
+end
+%>
+
+
 
 }

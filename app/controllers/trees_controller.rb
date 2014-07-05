@@ -6,7 +6,15 @@ class TreesController < ApplicationController
 	
 	# Actual creation of the tree
 	def create
-		@tree = Tree.new(tree_params)
+		@tree = Tree.new
+		@tree.name = tree_params[:name]
+		session[:import] = false
+		
+		if not (tree_params[:brackets].nil? or tree_params[:brackets].empty?)
+			@tree.parse_txt(tree_params[:brackets])
+			session[:import] = true
+		end
+		
 		@tree.save
 		
 		redirect_to @tree
@@ -15,6 +23,8 @@ class TreesController < ApplicationController
 	# Show the tree itself
 	def show
 		@tree = Tree.find(params[:id])
+		@import = session[:import]
+		session[:import] = nil
 		respond_to do |format|
 			format.html
 			format.txt { render plain: @tree.export_txt }
@@ -70,6 +80,6 @@ class TreesController < ApplicationController
 	
 	private
 		def tree_params
-			params.require(:tree).permit(:name)
+			params.require(:tree).permit(:name, :brackets)
 		end
 end

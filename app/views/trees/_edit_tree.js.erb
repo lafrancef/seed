@@ -459,6 +459,15 @@ function NodeMixin() {
 		this._case = _case != undefined ? _case : false;
 		
 		this.dragOffset = {left: 0, top: 0};
+		
+		// Variables used for pretty-ing the tree
+		this._thread = undefined;
+		this._mod = 0;
+		this._prelimX = 0;
+		this._shift = 0;
+		this._change = 0;
+		this._ancestor = this.id;
+		
 	}
 	
 	this.makeEditable = function($elem, empty) {
@@ -539,6 +548,197 @@ function NodeMixin() {
 		
 		return node;
 	}
+	
+	this.move = function(x, y) {
+		this._$node.css({top: y + "px", left: x + "px"});
+		this.hasMoved();
+	}
+	
+	this.extremeChild = function(left) {
+		childList = this.getOrderedChildren(false);
+		
+		if(childList.length == 0)
+			return this.id;
+		
+		if(left) {
+			return NODES[childList[0]].extremeChild();
+		} else {
+			return NODES[childList[childList.length - 1]].extremeChild();
+		}
+	}
+	
+	this.nextInContour = function(left) {
+		if(this.isLeaf())
+			return this._thread;
+		else
+			return this.extremeChild(left);
+	}
+	
+	this.getOrderedChildren = function(reverse) {
+		childList = [];
+		for(chid in this._chids)
+			childList.push(chid);
+		childList.sort();
+		
+		if(reverse)
+			childList.reverse();
+		
+		return childList;
+	}
+	
+	this.leftmostSibling = function() {
+		if(this._pid == undefined)
+			return this.id;
+		else
+			return NODES[this._pid].extremeChild(true);
+	}
+	
+	this.leftGCAncestor = function(v, deflt) {
+		var par = NODES[NODES[v._ancestor].pid];
+		
+		if(par != undefined && this.id in par._chids)
+			return v._ancestor;
+		else
+			return deflt
+	}
+	
+	this.moveSubtree = function(leftSibling, shift) {
+		//(ancestor, v [this], shift)
+		// w-, w+, shift
+		var subtrees = 0;
+		var seenLeft = false;
+		level = NODES[this._pid].getOrderedChildren(false);
+		for(i = 0 ; i < level.length ; i++) {
+			if(level[i] == leftSibling)
+				seenLeft = true;
+			else if(level[i] == this.id)
+				break;
+			
+			if(seenLeft)
+				subtrees++;
+		}
+		
+		this._change -= (shift / subtrees);
+		this._shift += shift;
+		this._mod += shift;
+		this._prelimX += shift;
+		NODES[leftSibling]._change -= (shift / subtrees);
+	}
+	
+	this.apportion = function(defaultAncestor) {
+		
+		var leftSibling = this.getLeftSibling();
+		//- left, + right
+		if(leftSibling != undefined) {
+			var vInLeft, vInRight, vOutLeft, vOutRight;
+			var sInLeft, sInRight, sOutLeft, sOutRight;
+			
+			vInRight = vOutRight = this.id;
+			vInLeft = leftSibling;
+			vOutLeft = this.leftmostSibling();
+			
+			sInLeft = NODES[vInLeft]._mod;
+			sInRight = NODES[vInRight]._mod;
+			sOutLeft = NODES[vOutLeft]._mod;
+			sOutRight = NODES[vOutRight]._mod;
+			
+			while(	NODES[vInLeft].nextInContour(true) != undefined 
+					&& NODES[vInRight].nextInContour(true) != undefined) {
+					
+				vInLeft = NODES[vInLeft].nextInContour(false);
+				vInRight = NODES[vInRight].nextInContour(true);
+				vOutLeft = NODES[vOutLeft].nextInContour(true);
+				vOutRight = NODES[vOutRight].nextInContour(false);
+				NODES[vOutRight]._ancestor = this.id;
+				
+				var shift = (NODES[vInLeft]._prelimX + sInLeft) - (NODES[vInRight]._prelimX + sInRight) + 10; //DEF: distance
+				if(shift > 0) {
+					this.moveSubtree(this.ancestor(vInLeft, defaultAncestor), shift);
+					sInRight += shift;
+					sOutRight += shift;
+				}
+				
+				sInLeft += NODES[vInLeft]._mod;
+				sInRight += NODES[vInRight]._mod;
+				sOutLeft += NODES[vOutLeft]._mod;
+				sOutRight += NODES[vOutRight]._mod;
+			}
+			
+			var nextRightVil = NODES[vInLeft].nextInContour(false);
+			var nextRightVor = NODES[vOutRight].nextInContour(false);
+			if(nextRightVil != undefined && nextRightVor == undefined) {
+				NODES[vOutRight]._thread = nextRightVil;
+				NODES[vOutRight]._mod += sInLeft - sOutRight;
+			}
+			
+			var nextLeftVir = NODES[vInRight].nextInContour(true);
+			var nextLeftVol = NODES[vOutLeft].nextInContour(true);
+			if(nextLeftVir != undefined && nextLeftVol == undefined) {
+				NODES[vOutLeft]._thread = nextLeftVir;
+				NODES[vOutLeft]._mod += sInRight - sOutLeft;
+			}
+		}
+	}
+	
+	this.isLeaf = function() {
+		for(chid in this._chids)
+			return false;
+		return true;
+	}
+	
+	this.getLeftSibling = function() {
+		if(this._pid == undefined)
+			return undefined;
+			
+		level = NODES[this._pid].getOrderedChildren(false);
+		for(i = 0 ; i < level.length ; i++) {
+			if(level[i] == this.id)
+				return level[i - 1];
+		}
+	}
+	
+	this.executeShifts = function() {
+		var shift = 0, change = 0;
+		children = this.getOrderedChildren(true);
+		for(i = 0 ; i < children.length ; i++) {
+			NODES[children[i]]._prelim += shift;
+			NODES[children[i]]._mod += shift;
+			change += NODES[children[i]]._change;
+			shift += NODES[children[i]]._shift + shift;
+		}
+	}
+	
+	this.prettyTreePrelim = function() {
+		if(this.isLeaf())
+			this._prelimX = 0;
+		else {
+			var defaultAncestor = this.extremeChild(true);
+			var children = this.getOrderedChildren(false);
+			for(i = 0 ; i < children.length ; i++) {
+				NODES[children[i]].prettyTreePrelim();
+				NODES[children[i]].apportion(defaultAncestor);
+			}
+			this.executeShifts();
+			var midpoint = 0.5 * (NODES[this.extremeChild(true)]._prelimX + NODES[this.extremeChild(false)]._prelimX);
+			var leftSibling = this.getLeftSibling();
+			if(leftSibling != undefined) {
+				this._prelim = NODES[leftSibling]._prelimX;
+				this._mod = this._prelimX - midpoint;
+			} else {
+				this._prelimX = midpoint;
+			}
+		}	
+	}
+	
+	this.prettyTreeReal = function(m, level) {
+		var x = this._prelimX + m;
+		var y = level * 60;
+		this.move(x, y);
+		for(chid in this._chids)
+			NODES[chid].prettyTreeReal(m + this._mod, level + 1);
+	}
+	
+	
 }
 
 function Node(id, x, y, posStr, contentStr, theta, _case) {

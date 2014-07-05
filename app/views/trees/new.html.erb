@@ -2,7 +2,11 @@
 <%= form_for :tree, url: trees_path do |f| %>
 	<p>
 		<%= f.label :name %><br/>
-		<%= f.text_field :name %>
+		<%= f.text_field :name %>		
+	</p>
+	<p>
+		Initial data (brackets)<br/>
+		<%= f.text_field :brackets %>
 	</p>
 	<p>
 		<%= f.submit "Create" %>
