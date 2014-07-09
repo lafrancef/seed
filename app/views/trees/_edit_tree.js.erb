@@ -561,17 +561,23 @@ function NodeMixin() {
 			return this.id;
 		
 		if(left) {
-			return NODES[childList[0]].extremeChild();
+			return NODES[childList[0]].extremeChild(left);
 		} else {
-			return NODES[childList[childList.length - 1]].extremeChild();
+			return NODES[childList[childList.length - 1]].extremeChild(left);
 		}
 	}
 	
 	this.nextInContour = function(left) {
-		if(this.isLeaf())
+		childList = this.getOrderedChildren(false);
+		
+		if(childList.length == 0)
 			return this._thread;
-		else
-			return this.extremeChild(left);
+		
+		if(left) {
+			return childList[0];
+		} else {
+			return childList[childList.length - 1];
+		}
 	}
 	
 	this.getOrderedChildren = function(reverse) {
@@ -701,7 +707,7 @@ function NodeMixin() {
 		var shift = 0, change = 0;
 		children = this.getOrderedChildren(true);
 		for(i = 0 ; i < children.length ; i++) {
-			NODES[children[i]]._prelim += shift;
+			NODES[children[i]]._prelimX += shift;
 			NODES[children[i]]._mod += shift;
 			change += NODES[children[i]]._change;
 			shift += NODES[children[i]]._shift + shift;
@@ -722,7 +728,7 @@ function NodeMixin() {
 			var midpoint = 0.5 * (NODES[this.extremeChild(true)]._prelimX + NODES[this.extremeChild(false)]._prelimX);
 			var leftSibling = this.getLeftSibling();
 			if(leftSibling != undefined) {
-				this._prelim = NODES[leftSibling]._prelimX;
+				this._prelimX = NODES[leftSibling]._prelimX;
 				this._mod = this._prelimX - midpoint;
 			} else {
 				this._prelimX = midpoint;

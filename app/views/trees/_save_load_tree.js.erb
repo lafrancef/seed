@@ -145,8 +145,9 @@ end
 
 if @import %>
 	var layout = function(root) {
+		alert("layout!");
 		root.prettyTreePrelim();
-		root.prettyTreeReal(0);
+		root.prettyTreeReal(0, 1);
 		
 		return false; //Only execute on the root
 	}
