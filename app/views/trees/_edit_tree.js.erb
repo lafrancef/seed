@@ -447,6 +447,8 @@ function NodeMixin() {
 				me.hasMoved();
 			}
 		});
+		
+		ed.select();
 	}
 	
 	this.basicInit = function(id, theta, _case) {
@@ -620,6 +622,10 @@ Node.prototype.stopEditing = function() {
 		this._$content.editable("close");
 }
 
+Node.prototype.isEditing = function() {
+	return (this._$pos.is(":editing") || this._$content.is(":editing"))
+}
+
 Node.prototype.spawnChild = function(isTrace) {
 	var top = parseInt(this._$node.css("top"));
 	var left = parseInt(this._$node.css("left"));
@@ -709,13 +715,12 @@ Trace.generateId = function() {
 		ids[tr.traceId.charCodeAt(0) - start] = true;
 	});
 	
-	for(i = 0 ; i < ids.length ; i++) {
+	for(i = 0 ; i <= (maxId - start) ; i++) {
 		if(ids[i] === undefined)
 			return String.fromCharCode(i + start);
 	}
 	
-	if(MAX_TRACE_ID != "i")
-		MAX_TRACE_ID = String.fromCharCode(maxId + 1);
+	MAX_TRACE_ID = String.fromCharCode(maxId + 1);
 	return MAX_TRACE_ID;
 }
 
@@ -735,6 +740,10 @@ Trace.prototype.simplify = function() {
 		simple["pos"] = this._$pos[0].innerHTML;
 		
 	return simple;
+}
+
+Trace.prototype.isEditing = function() {
+	return this._$pos.is(":editing");
 }
 
 Trace.prototype.stopEditing = function() {
