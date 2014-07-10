@@ -459,8 +459,117 @@ function NodeMixin() {
 		this.id = id;
 		this._theta = theta != undefined ? theta : false;
 		this._case = _case != undefined ? _case : false;
+		this._xOffset = 0;
 		
 		this.dragOffset = {left: 0, top: 0};
+	}
+	
+	this.isLeaf = function() {
+		for(child in this._chids)
+			return false;
+			
+		return true;
+	}
+	
+	this.extremeLeft = function(offset) {
+		if(this.isLeaf())
+			return offset - this.getDimensions().x / 2;
+		
+		var minOffset = undefined;
+		var minChild;
+		for(child in this._chids) {
+			if(minOffset == undefined || NODES[child]._xOffset < minOffset) {
+				minOffset = NODES[child]._xOffset;
+				minChild = child;
+			}
+		}
+		
+		return NODES[child].extremeLeft(minOffset);
+	}
+	
+	this.extremeRight = function(offset) {
+		if(this.isLeaf())
+			return offset + this.getDimensions().x / 2;
+		
+		var maxOffset = undefined;
+		var maxChild;
+		for(child in this._chids) {
+			if(maxOffset == undefined || NODES[child]._xOffset > maxOffset) {
+				maxOffset = NODES[child]._xOffset;
+				maxChild = child;
+			}
+		}
+		
+		return NODES[child].extremeRight(maxOffset);
+	}
+	
+	this.subtreeWidth = function() {
+		return this.extremeRight(0) - this.extremeLeft(0);
+	}
+	
+	var MIN_NODE_DISTANCE = 10;
+	this.prettify = function() {
+		if(this.isLeaf())
+			this._xOffset = 0;
+		else {
+			for(child in this._chids)
+				NODES[child].prettify();
+				
+			var shift = 0;
+			var numChildren = 0;
+			var orderedChildren = [];
+			for(child in this._chids) {
+				numChildren++;
+				orderedChildren.push(child);
+			}
+			
+			orderedChildren.sort();
+				
+			var i = Math.floor(numChildren / 2) - 1;
+			var j = i + 1;
+			
+			if(numChildren % 2 == 1) { //Account for the central element (which has no shift)
+				shift = Math.round(NODES[orderedChildren[i + 1]].getDimensions().x / 2);
+				j++;
+			}
+			
+			while(i >= 0) {
+				var iCh = orderedChildren[i], jCh = orderedChildren[j];
+				var iWidth = NODES[iCh].subtreeWidth(), jWidth = NODES[jCh].subtreeWidth();
+				if(iWidth > jWidth) {
+					NODES[iCh]._xOffset = -(iWidth / 2 + MIN_NODE_DISTANCE);
+					NODES[jCh]._xOffset = iWidth / 2 + MIN_NODE_DISTANCE;
+				} else if (jWidth > iWidth) {
+					NODES[iCh]._xOffset = -((iWidth + jWidth) / 2 + MIN_NODE_DISTANCE);
+					NODES[jCh]._xOffset = jWidth / 2 + MIN_NODE_DISTANCE;
+				} else {
+					NODES[iCh]._xOffset = -(iWidth / 2 + MIN_NODE_DISTANCE);
+					NODES[jCh]._xOffset = jWidth / 2 + MIN_NODE_DISTANCE;
+				}
+				
+				NODES[iCh]._xOffset = Math.round(NODES[iCh]._xOffset - shift);
+				NODES[jCh]._xOffset = Math.round(NODES[jCh]._xOffset + shift);
+
+				shift += Math.max(Math.abs(NODES[iCh]._xOffset), NODES[jCh]._xOffset);
+				
+				i--;
+				j++;
+			}
+		}
+	}
+	
+	this.prettyPosition = function(root) {
+		if(!root) {
+			var parentPos = NODES[this._pid].getCanvasRelativeCenter();
+			var dimensions = this.getDimensions();
+			var x = parentPos.x - dimensions.x / 2 + this._xOffset;
+			var y = parentPos.y + NODES[this._pid].getDimensions().y / 2 + 30;
+			this._$node.css({top: y + "px", left: x + "px"}); //TODO Fix using correct drag position
+			this.hasMoved();
+		}
+		
+		for(chid in this._chids)
+			NODES[chid].prettyPosition(false);
 	}
 	
 	this.makeEditable = function($elem, empty) {
@@ -843,6 +952,15 @@ $("#btnTrace").click(function() {
 			n.spawnChild(true);
 			return false;
 		}
+	});
+});
+
+$("#btnPretty").click(function() {
+
+	allSelectedNodes( function(n) { 
+		n.prettify();
+		n.prettyPosition(true);
+		return false;
 	});
 });
 
