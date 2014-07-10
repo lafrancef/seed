@@ -471,9 +471,10 @@ function NodeMixin() {
 		return true;
 	}
 	
+	//TODO Refactor those two functions
 	this.extremeLeft = function(offset) {
 		if(this.isLeaf())
-			return offset - this.getDimensions().x / 2;
+			return Math.abs(offset - this.getDimensions().x / 2);
 		
 		var minOffset = undefined;
 		var minChild;
@@ -484,7 +485,7 @@ function NodeMixin() {
 			}
 		}
 		
-		return NODES[child].extremeLeft(minOffset);
+		return NODES[minChild].extremeLeft(offset + minOffset);
 	}
 	
 	this.extremeRight = function(offset) {
@@ -500,15 +501,15 @@ function NodeMixin() {
 			}
 		}
 		
-		return NODES[child].extremeRight(maxOffset);
+		return NODES[maxChild].extremeRight(offset + maxOffset);
 	}
 	
 	this.subtreeWidth = function() {
-		return this.extremeRight(0) - this.extremeLeft(0);
+		return this.extremeRight(0) + this.extremeLeft(0);
 	}
 	
 	var MIN_NODE_DISTANCE = 10;
-	this.prettify = function() {
+	this.prettify = function(idOrder) {
 		if(this.isLeaf())
 			this._xOffset = 0;
 		else {
@@ -523,35 +524,33 @@ function NodeMixin() {
 				orderedChildren.push(child);
 			}
 			
-			orderedChildren.sort();
+			if(idOrder) 
+				orderedChildren.sort();
+			else
+				orderedChildren.sort(function(a, b) {
+					var aX = NODES[a].getCanvasRelativeCenter().x;
+					var bX = NODES[b].getCanvasRelativeCenter().x;
+					return aX - bX;
+				});
 				
 			var i = Math.floor(numChildren / 2) - 1;
 			var j = i + 1;
 			
 			if(numChildren % 2 == 1) { //Account for the central element (which has no shift)
-				shift = Math.round(NODES[orderedChildren[i + 1]].getDimensions().x / 2);
+				var cntr = orderedChildren[i + 1];
+				shift = Math.max(NODES[cntr].extremeRight(0), NODES[cntr].extremeLeft(0));
 				j++;
 			}
 			
 			while(i >= 0) {
 				var iCh = orderedChildren[i], jCh = orderedChildren[j];
-				var iWidth = NODES[iCh].subtreeWidth(), jWidth = NODES[jCh].subtreeWidth();
-				if(iWidth > jWidth) {
-					NODES[iCh]._xOffset = -(iWidth / 2 + MIN_NODE_DISTANCE);
-					NODES[jCh]._xOffset = iWidth / 2 + MIN_NODE_DISTANCE;
-				} else if (jWidth > iWidth) {
-					NODES[iCh]._xOffset = -((iWidth + jWidth) / 2 + MIN_NODE_DISTANCE);
-					NODES[jCh]._xOffset = jWidth / 2 + MIN_NODE_DISTANCE;
-				} else {
-					NODES[iCh]._xOffset = -(iWidth / 2 + MIN_NODE_DISTANCE);
-					NODES[jCh]._xOffset = jWidth / 2 + MIN_NODE_DISTANCE;
-				}
+				var displacement = Math.max(NODES[iCh].extremeRight(0), NODES[jCh].extremeLeft(0));
+				displacement += shift + MIN_NODE_DISTANCE;
+				shift += Math.max(NODES[iCh].subtreeWidth(), NODES[jCh].subtreeWidth()) + MIN_NODE_DISTANCE;
 				
-				NODES[iCh]._xOffset = Math.round(NODES[iCh]._xOffset - shift);
-				NODES[jCh]._xOffset = Math.round(NODES[jCh]._xOffset + shift);
-
-				shift += Math.max(Math.abs(NODES[iCh]._xOffset), NODES[jCh]._xOffset);
 				
+				NODES[iCh]._xOffset = Math.round(-displacement);
+				NODES[jCh]._xOffset = Math.round(displacement);
 				i--;
 				j++;
 			}
@@ -563,7 +562,7 @@ function NodeMixin() {
 			var parentPos = NODES[this._pid].getCanvasRelativeCenter();
 			var dimensions = this.getDimensions();
 			var x = parentPos.x - dimensions.x / 2 + this._xOffset;
-			var y = parentPos.y + NODES[this._pid].getDimensions().y / 2 + 30;
+			var y = parentPos.y + NODES[this._pid].getDimensions().y / 2 + 40;
 			this._$node.css({top: y + "px", left: x + "px"}); //TODO Fix using correct drag position
 			this.hasMoved();
 		}
@@ -958,7 +957,7 @@ $("#btnTrace").click(function() {
 $("#btnPretty").click(function() {
 
 	allSelectedNodes( function(n) { 
-		n.prettify();
+		n.prettify(false);
 		n.prettyPosition(true);
 		return false;
 	});
