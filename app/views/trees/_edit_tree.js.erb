@@ -471,6 +471,11 @@ function NodeMixin() {
 		return true;
 	}
 	
+	this.move = function(x, y) {
+		this._$node.css({top: y + "px", left: x + "px"}); //TODO Fix using correct drag position
+		this.hasMoved();
+	}
+	
 	//TODO Refactor those two functions
 	this.extremeLeft = function(offset) {
 		if(this.isLeaf())
@@ -563,8 +568,15 @@ function NodeMixin() {
 			var dimensions = this.getDimensions();
 			var x = parentPos.x - dimensions.x / 2 + this._xOffset;
 			var y = parentPos.y + NODES[this._pid].getDimensions().y / 2 + 40;
-			this._$node.css({top: y + "px", left: x + "px"}); //TODO Fix using correct drag position
-			this.hasMoved();
+			this.move(x, y);
+		} else {
+			//If the tree would end up outside of the canvas area, move it
+			var currentLeft = parseInt(this._$node.css("left"));
+			var leftBoundary = this.extremeLeft(0);
+			var outside = currentLeft - leftBoundary;
+			if(outside < 0) {
+				this.move(currentLeft - outside, parseInt(this._$node.css("top")));
+			}
 		}
 		
 		for(chid in this._chids)
