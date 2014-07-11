@@ -3,6 +3,7 @@
 	<%= javascript_include_tag "kinetic-v5.1.0.min" %>
 	<%= javascript_include_tag "text-grow" %>
 	<script type="text/javascript">
+		<%= render "trees/nodes.js" %>
 		<%= render "trees/save_load_tree.js" %>
 		<%= render "trees/edit_tree.js" %>
 	</script>
@@ -18,6 +19,7 @@
 		<input id="btnTheta" type="submit" value="Theta"/><br/>
 		<input id="btnCase" type="submit" value="Case"/><br/>
 		<input id="btnPretty" type="submit" value="Prettify"/><br/>
+		<input id="btnContent" type="submit" value="Contents"/><br/>
 		<span id="saveMessage"></span>
 	</div>
 
