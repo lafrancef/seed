@@ -11,19 +11,32 @@ class Tree < ActiveRecord::Base
 	end
 	
 	def leaf? (node)
-		return (not nodes.exists?(pid: node['relative_id']))
+		return (not nodes.exists?(pid: node.relative_id))
 	end
 	
 	def children (node)
-		return nodes.where(pid: node['relative_id']).order(:x)
+		return nodes.where(pid: node.relative_id).order(:x)
 	end
 	
 	def node_str (node)
-		res = '[' + node['part_of_speech'] + ' '
+		res = '[' + node.part_of_speech
 		if self.leaf?(node)
-			res += node['contents']
+			# Normal node; add contents and potential trace identifier
+			if node.type == 'Node' and not (node.contents.nil? or node.contents.empty?)
+				res += ' ' + node.contents
+				trace = nodes.find_by(relative_id: node.trace_id)
+				if not trace.nil?
+					res += '_' + trace.trace_idx
+				end
+			else # Trace; add trace identifier
+				res += ' t_' + node.trace_idx
+			end
 		else
-			self.children(node).each do |child|
+			children = self.children(node)
+			if not children.empty?
+				res += ' '
+			end
+			children.each do |child|
 				res += self.node_str(child)
 			end
 		end
