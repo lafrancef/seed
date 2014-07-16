@@ -13,6 +13,9 @@
 
 ActiveRecord::Schema.define(version: 20140625014733) do
 
+  # These are extensions that must be enabled in order to support this database
+  enable_extension "plpgsql"
+
   create_table "nodes", force: true do |t|
     t.integer  "tree_id"
     t.integer  "relative_id"
@@ -30,7 +33,7 @@ ActiveRecord::Schema.define(version: 20140625014733) do
     t.boolean  "theta"
   end
 
-  add_index "nodes", ["tree_id"], name: "index_nodes_on_tree_id"
+  add_index "nodes", ["tree_id"], name: "index_nodes_on_tree_id", using: :btree
 
   create_table "trees", force: true do |t|
     t.string   "name",       limit: 50
