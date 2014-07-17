@@ -180,11 +180,7 @@ function NodeMixin() {
 	}
 
 	this.hasMoved = function() {
-		var top = parseInt(this._$node.css("top"));
-		var left = parseInt(this._$node.css("left"));
-		var correct = this.centerGridPosition({top: top, left: left});
-		
-		//this._$node.css({top: correct.top + "px", left: correct.left + "px"});
+		this._lastMove = this.getCanvasRelativeCenter();
 		
 		if(this._pid != undefined) {
 			this.updateParentLine();
@@ -313,6 +309,7 @@ function NodeMixin() {
 		}
 		
 		this._$theta.css("margin-left", (this._theta ? "5px" : "0px"));
+		this.hasMoved();
 	}
 	
 	this.toggleCase = function() {
@@ -329,6 +326,7 @@ function NodeMixin() {
 		}
 		
 		this._$case.css("margin-left", (this._case ? "3px" : "0px"));
+		this.hasMoved();
 	}
 	
 	this.signalModification = function() {
@@ -336,16 +334,26 @@ function NodeMixin() {
 			SAVER.signalModification(this.id);
 	}
 	
+	this.centerOn = function(x, y) {
+		var dimensions = this.getDimensions();
+		var position = {top: y - dimensions.y / 2, left: x - dimensions.x / 2};
+		this._$node.css(this.centerGridPosition(position));
+		this.hasMoved();
+	}
+	
 	this.edit = function(ev, ed) {
 		if(ed.val().length == 0)
 			ed.css("width", this._EDIT_MIN_WIDTH + "px");
 		
 		var me = this;
+		var oldCenter = this._lastMove;
 		ed.autoGrowInput({
-			comfortZone: 5, 
+			/* A nonzero comfortZone will cause problems because the node 
+			will have different widths when edited and not edited. */
+			comfortZone: 0, 
 			minWidth: me._EDIT_MIN_WIDTH,
 			callback: function() {
-				me.hasMoved();
+				me.centerOn(oldCenter.x, oldCenter.y);
 			}
 		});
 		
@@ -372,8 +380,10 @@ function NodeMixin() {
 		return true;
 	}
 	
-	this.move = function(x, y) {
-		var correct = this.centerGridPosition({top: y, left: x});
+	/* Move this node to the specified top/left position
+	*/
+	this.move = function(left, top) {
+		var correct = this.centerGridPosition({top: top, left: left});
 		this._$node.css({top: correct.top + "px", left: correct.left + "px"});
 		this.hasMoved();
 	}
@@ -484,13 +494,14 @@ function NodeMixin() {
 			NODES[chid].prettyPosition(false);
 	}
 	
-	this.makeEditable = function($elem, empty) {
+	this.makeEditable = function($elem, empty, length) {
 		var me = this;
 		$elem.addClass("editable");
 		$elem.editable({
 			toggleFontSize: false,
 			closeOnEnter: true,
 			emptyMessage: empty,
+			maxLength: length,
 			callback: function(data) {
 				EDITED = undefined;
 				me.signalModification();
@@ -498,12 +509,18 @@ function NodeMixin() {
 		}).dblclick(function(e) { me.dblClick.call(me, e); })
 		.data('id', this.id)
 		.on('edit', function(ev, ed) {
+			me._oldCenter = me.getCanvasRelativeCenter();
 			me.edit.call(me, ev, ed);
 		});
 	}
 	
 	this.createSkeleton = function(posStr) {
 		var node = document.createElement('div');
+		
+		// Temporary position before the node is moved to its final spot
+		node.style.top = "10px";
+		node.style.left = "10px";
+		
 		node.className = "node";
 		node.style.position = "absolute";
 		node.id = "nid_" + this.id;
@@ -555,7 +572,7 @@ function NodeMixin() {
 			return me.centerGridPosition(pos);
 		}
 		
-		this.makeEditable(this._$pos, this._EMPTY_POS);
+		this.makeEditable(this._$pos, this._EMPTY_POS, 10);
 		
 		this.updateCaseVisual();
 		this.updateThetaVisual();
@@ -582,7 +599,6 @@ function Node(id, x, y, posStr, contentStr, theta, _case) {
 	container.appendChild(content);
 	container.appendChild(trace);
 	node.appendChild(container);
-	this.move(x, y);
 	
 	mainCanvas.appendChild(node);
 	
@@ -592,6 +608,7 @@ function Node(id, x, y, posStr, contentStr, theta, _case) {
 	
 	this.makeEditable(this._$content, this._EMPTY_CONTENT);
 	
+	this.move(x, y);
 	if(SAVER != undefined)
 		SAVER.signalModification(this.id);
 }
@@ -650,20 +667,20 @@ Node.prototype.isEditing = function() {
 }
 
 Node.prototype.spawnChild = function(isTrace) {
-	var top = parseInt(this._$node.css("top"));
-	var left = parseInt(this._$node.css("left"));
+	var center = this.getCanvasRelativeCenter();
 	
 	//TODO use actual border width
 	var newNode;
 	if(isTrace) {
-		newNode = new Trace(ID_COUNTER, left - 2, top + 70, Trace.generateId());
+		newNode = new Trace(ID_COUNTER, 10, 10, Trace.generateId());
 	} else {
-		newNode = new Node(ID_COUNTER, left - 2, top + 70);
+		newNode = new Node(ID_COUNTER, 10, 10);
 	}
 	newNode.setParent(this.id);
-	
 	this._chids[newNode.id] = true;
 	
+	newNode.move(center.x - newNode.getDimensions().x / 2, center.y + 50);
+
 	NODES[ID_COUNTER] = newNode;
 	
 	ID_COUNTER += 1;
@@ -726,10 +743,9 @@ function Trace(id, x, y, traceId, posStr, theta, _case) {
 	trace.innerHTML = "<i>t</i><sub>" + traceId + "</sub>";
 	
 	node.appendChild(trace);
-	this.move(x, y);
-	
 	mainCanvas.appendChild(node);
 	
+	this.move(x, y);
 	if(SAVER != undefined)
 		SAVER.signalModification(this.id);
 }
