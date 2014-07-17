@@ -75,8 +75,9 @@ function NodeMixin() {
 		}
 	}
 	
-	this.correctDragPosition = function(pos) {
-		//Obtain a position aligned on a 10x10 grid
+	this.centerGridPosition = function(pos) {
+		/* Obtain a position so that the center of the node is on
+			a 10 x 10 grid. */
 	
 		centerLeft = pos.left + (this._$node.outerWidth() / 2);
 		pos.left -= offsetTo10s(centerLeft);
@@ -179,6 +180,12 @@ function NodeMixin() {
 	}
 
 	this.hasMoved = function() {
+		var top = parseInt(this._$node.css("top"));
+		var left = parseInt(this._$node.css("left"));
+		var correct = this.centerGridPosition({top: top, left: left});
+		
+		//this._$node.css({top: correct.top + "px", left: correct.left + "px"});
+		
 		if(this._pid != undefined) {
 			this.updateParentLine();
 		}
@@ -228,6 +235,7 @@ function NodeMixin() {
 
 		this._lineToParent.on("click", clickLine);
 
+		var me = this;
 		//Make a larger line to click on
 		this._lineToParent.hitFunc(function(ctx) {
 			ctx.beginPath();
@@ -235,7 +243,7 @@ function NodeMixin() {
 			ctx.lineTo(this.getPoints()[2], this.getPoints()[3]);
 			ctx.closePath();
 			var originalWidth = this.getStrokeWidth();
-			this.setStrokeWidth(this._LINE_CLICK_WIDTH);
+			this.setStrokeWidth(me._LINE_CLICK_WIDTH);
 			ctx.fillStrokeShape(this);
 			this.setStrokeWidth(originalWidth);
 		});
@@ -272,13 +280,17 @@ function NodeMixin() {
 	}
 
 	this.selectLine = function() {
-		this._lineToParent.stroke("#7FFFD4");
-		this._lineSelected = true;
+		if(this._lineToParent != undefined) {
+			this._lineToParent.stroke("#7FFFD4");
+			this._lineSelected = true;
+		}
 	}
 
 	this.deselectLine = function() {
-		this._lineToParent.stroke("#000000");
-		this._lineSelected = false;
+		if(this._lineToParent != undefined) {
+			this._lineToParent.stroke("#000000");
+			this._lineSelected = false;
+		}
 	}
 
 	this.removeLine = function() {
@@ -331,7 +343,7 @@ function NodeMixin() {
 		var me = this;
 		ed.autoGrowInput({
 			comfortZone: 5, 
-			minWidth: this._EDIT_MIN_WIDTH,
+			minWidth: me._EDIT_MIN_WIDTH,
 			callback: function() {
 				me.hasMoved();
 			}
@@ -361,7 +373,8 @@ function NodeMixin() {
 	}
 	
 	this.move = function(x, y) {
-		this._$node.css({top: y + "px", left: x + "px"}); //TODO Fix using correct drag position
+		var correct = this.centerGridPosition({top: y, left: x});
+		this._$node.css({top: correct.top + "px", left: correct.left + "px"});
 		this.hasMoved();
 	}
 	
@@ -489,11 +502,9 @@ function NodeMixin() {
 		});
 	}
 	
-	this.createSkeleton = function(x, y, posStr) {
+	this.createSkeleton = function(posStr) {
 		var node = document.createElement('div');
 		node.className = "node";
-		node.style.top = y + "px";
-		node.style.left = x + "px";
 		node.style.position = "absolute";
 		node.id = "nid_" + this.id;
 
@@ -527,19 +538,21 @@ function NodeMixin() {
 			drag: function(e, u) { return me.drag.call(me, e, u); },
 			//Contain inside the canvas, only on the top and left sides (right and bottom are unlimited)
 			containment: [mainCanvasPos.left + 3, mainCanvasPos.top + 3, undefined, undefined], //TODO Use real padding
-			distance: 5,
-			grid: [10, 10]
+			distance: 5
 		}).click(function(e) { me.click.call(me, e); })
 		.dblclick(function(e) { e.stopPropagation(); }) //Prevent double-click from reaching main canvas
 		.data('id', this.id);
 		
+		/* 	Hack: modify the position generation of jQuery so that dragging aligns node centers on a 10x10 grid.
+			The grid functionality uses a "relative" grid (in increments of x/y from current
+			position), which is not what we want. */
 		$nodeDrag = this._$node.data("draggable");
 		if($nodeDrag.__proto__.oldGeneratePosition === undefined)
 			$nodeDrag.__proto__.oldGeneratePosition = $nodeDrag._generatePosition;
 
 		$nodeDrag._generatePosition = function(ev) {
 			var pos = me._$node.data("draggable").oldGeneratePosition(ev);
-			return me.correctDragPosition(pos);
+			return me.centerGridPosition(pos);
 		}
 		
 		this.makeEditable(this._$pos, this._EMPTY_POS);
@@ -555,7 +568,7 @@ function Node(id, x, y, posStr, contentStr, theta, _case) {
 	this.basicInit(id, theta, _case);
 	this._traceId = undefined;
 	
-	var node = this.createSkeleton(x, y, posStr);
+	var node = this.createSkeleton(posStr);
 	
 	var content = document.createElement('span');
 	if(contentStr != undefined)
@@ -569,12 +582,14 @@ function Node(id, x, y, posStr, contentStr, theta, _case) {
 	container.appendChild(content);
 	container.appendChild(trace);
 	node.appendChild(container);
+	this.move(x, y);
+	
 	mainCanvas.appendChild(node);
 	
 	this._$content = $(content);
 	this._$trace = $(trace);
 	this._$container = $(container);
-		
+	
 	this.makeEditable(this._$content, this._EMPTY_CONTENT);
 	
 	if(SAVER != undefined)
@@ -705,12 +720,14 @@ function Trace(id, x, y, traceId, posStr, theta, _case) {
 	this.traceId = traceId;
 	this._traceeId = undefined;
 	
-	var node = this.createSkeleton(x, y, posStr);
+	var node = this.createSkeleton(posStr);
 	
 	var trace = document.createElement('div');
 	trace.innerHTML = "<i>t</i><sub>" + traceId + "</sub>";
 	
 	node.appendChild(trace);
+	this.move(x, y);
+	
 	mainCanvas.appendChild(node);
 	
 	if(SAVER != undefined)

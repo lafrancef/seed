@@ -60,7 +60,7 @@ function clickLine(e) {
 	var possessingNode = NODES[this.id()];
 	clickedLine = true;
 	
-	if (e.evt.shiftKey == false) {
+	if(e.evt.shiftKey == false) {
 		/* No shift key: 
 			- Deselect everything
 			- Select this element if it was not selected, or if
@@ -78,10 +78,10 @@ function clickLine(e) {
 		var wasSelected = possessingNode.lineSelected();
 		allSelectedLines('deselectLine');
 	
-		if (!wasSelected || numSel > 1)
+		if(!wasSelected || numSel > 1)
 			possessingNode.selectLine();
     } else {
-		if (possessingNode.lineSelected())
+		if(possessingNode.lineSelected())
 			possessingNode.deselectLine();
 		else
 			possessingNode.selectLine();
@@ -150,13 +150,14 @@ $mainCanvas.selectable({
 });
 
 $(document.body).keydown(function(e) {
-	if (e.keyCode == 46) { //Delete key
+	if(e.keyCode == 46) { //Delete key
 		if (EDITED == undefined) {
 			allSelectedNodes('remove');
 			allSelectedLines('removeLine');
 		}
-	} else if (e.keyCode == 27) { //Escape key
+	} else if(e.keyCode == 27) { //Escape key
 		allNodes('deselect');
+		allNodes('deselectLine');
 		if (EDITED != undefined)
 			EDITED.stopEditing();
 	}
@@ -215,7 +216,7 @@ $("#btnLink").click(function() {
 	var sel1, sel2;
 	
 	// Pick the first two selected nodes
-	allSelectedNodes( function(n) { 
+	allSelectedNodes(function(n) { 
 		if(n.isSelected()) {
 			if(sel1 == undefined)
 				sel1 = n;
@@ -265,8 +266,13 @@ $("#btnLink").click(function() {
 	}
 });
 
-loadTree();
+var wasImported = loadTree();
 SAVER = new Saver();
+
+if(wasImported) {
+	allNodes("signalModification");
+}
+
 $(mainCanvas).selectable("refresh");
 
 });

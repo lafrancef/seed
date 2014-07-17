@@ -155,7 +155,10 @@ if not nodes.nil?
 	if @import %>
 		NODES[0].prettify(true); //Use ID order since no positions exist yet
 		NODES[0].prettyPosition(true);
-<% end	
+		return true;
+<%	else %>
+		return false;
+<%	end
 end %>
 
 }
