@@ -1,586 +1,5 @@
-function NodeMixin() {
-
-	this._EMPTY_POS = "<i>X</i>";
-	this._EMPTY_CONTENT = "<i>Node</i>";
-	this._LINE_WIDTH_PX = 1;
-	this._LINE_CLICK_WIDTH = 16;
-	this._EDIT_MIN_WIDTH = 30;
-	this._MIN_NODE_DISTANCE = 10;
-	this._NODE_VERTICAL_SPACE  = 40;
-
-	this.startDragging = function(ev, ui) {
-		var me = this;
-		var mainCanvas = document.getElementById("mainCanvas");
-		var mainCanvasPos = mainCanvas.getBoundingClientRect();	
-	
-		if(EDITED != undefined)
-			EDITED.stopEditing();
-
-		allSelectedLines("deselectLine");
-	
-		//If this node is selected, initiate potential multi-select drag
-		if (this.isSelected()){
-			allSelectedNodes(function(node) {
-				node._$node.data("offset", node._$node.offset());
-			});
-		} else {
-			//Otherwise we want to drag only the current node
-			allNodes('deselect');
-			this.select();
-		}
-		this.dragOffset = this._$node.offset();
-	}
-
-	this.drag = function(ev, ui) {
-		
-		this.hasMoved();
-		
-		var dt = ui.position.top - this.dragOffset.top, dl = ui.position.left - this.dragOffset.left;
-		
-		//Compute new position for all selected nodes (except current one)
-		var maxTop = ui.position.top, maxLeft = ui.position.left;
-		var me = this;
-		allSelectedNodes(function(currentNode) {
-			if(currentNode == me)
-				return;
-				
-			var el = currentNode._$node, off = el.data("offset");
-			var newTop = off.top + dt, newLeft = off.left + dl
-			el.data("newPos", {top: newTop, left: newLeft});
-			
-			//Record maximum coordinates among nodes that are being dragged
-			if(newTop > maxTop)
-				maxTop = newTop;
-			if(newLeft > maxLeft)
-				maxLeft = newLeft;
-		});
-		
-		//Move everything
-		allSelectedNodes(function(currentNode) {
-			if(currentNode == me)
-				return;
-		
-			var el = currentNode._$node;
-			el.css(el.data("newPos"));
-			currentNode.hasMoved();
-		});
-		
-		//Resize the Kinetic stage if some nodes are getting close to going out of bounds
-		var h = KinSTAGE.height(), w = KinSTAGE.width();
-		if(maxTop + this.getDimensions().y + 5 > h) {
-			KinSTAGE.height(h + 300);
-		}
-		if(maxLeft + this.getDimensions().x + 5 > w) {
-			KinSTAGE.width(w + 300);
-		}
-	}
-	
-	this.centerGridPosition = function(pos) {
-		/* Obtain a position so that the center of the node is on
-			a 10 x 10 grid. */
-	
-		centerLeft = pos.left + (this._$node.outerWidth() / 2);
-		pos.left -= offsetTo10s(centerLeft);
-		
-		centerTop = pos.top + (this._$node.outerHeight() / 2);
-		pos.top -= offsetTo10s(centerTop);
-		
-		return pos;
-	}
-
-	this.dblClick = function(e) {
-		EDITED = this;
-		this.select();
-	}
-
-	this.click = function(e){
-		e.stopPropagation(); //Prevent the main canvas from receiving the click
-		if(EDITED != undefined) {
-			if(EDITED != this)
-				EDITED.stopEditing();
-			else
-				return;
-		}
-		
-		if (e.shiftKey == false) {
-			/* No shift key: 
-				- Deselect everything
-				- Select this element if it was not selected, or if
-				  it was part of a multi-selection
-			*/
-			
-			//Deselect lines
-			allSelectedLines("deselectLine");
-				
-			KinSTAGE.draw();
-			
-			var numSel = 0;
-			allSelectedNodes(function(n) { numSel++; });
-			
-			var wasSelected = this.isSelected();
-		
-			allNodes('deselect');
-			if (!wasSelected || numSel > 1)
-				this.startSelecting();
-		} else {
-			/* Shift key: Toggle selected on this element only */
-			this.toggle();
-		}
-		
-		$( "#mainCanvas" ).data("selectable")._mouseStop(null);
-	}
-	
-	this.startSelecting = function() {
-		this._$node.addClass("ui-selecting");
-	}
-
-	this.select = function() {
-		if(!this._$node.hasClass("ui-selected"))
-			this._$node.addClass("ui-selected");
-	}
-
-	this.deselect = function() {
-		if(this._$node.hasClass("ui-selected"))
-			this._$node.removeClass("ui-selected");
-	}
-
-	this.isSelected = function() {
-		return this._$node.hasClass("ui-selected");
-	}
-
-	this.toggle = function () {
-		if (this._$node.hasClass("ui-selected")) {
-			this._$node.removeClass("ui-selected");
-		}
-		else {
-			this._$node.addClass("ui-selecting");
-		}
-	}
-
-	this.getDimensions = function() {
-		return {x: this._$node.outerWidth(), y: this._$node.outerHeight() }
-	}
-	
-	this.remove = function() {
-		delete NODES[this.id];
-		this._$node.remove();
-		
-		if(this._pid != undefined) {
-			NODES[this._pid].removeChild(this.id);
-			
-			this._lineToParent.destroy();
-			KinSTAGE.draw();
-		}
-		
-		for(child in this._chids) {
-			NODES[child].parentRemoved(); //Children signal modification here
-		}
-		
-		this.signalModification();
-	}
-
-	this.hasMoved = function() {
-		this._lastMove = this.getCanvasRelativeCenter();
-		
-		if(this._pid != undefined) {
-			this.updateParentLine();
-		}
-		
-		for(child in this._chids)
-			NODES[child].parentMoved();
-			
-		this.signalModification();
-	}
-
-	this.parentMoved = function() {
-		this.updateParentLine();
-	}
-	
-	this.updateParentLine = function() {
-		//TODO figure out why we have to correct the y coordinate by 3
-		var pts = this._lineToParent.points();
-		var theirCenter = NODES[this._pid].getCanvasRelativeCenter();
-		var ourCenter = this.getCanvasRelativeCenter();
-		pts[0] = middle(ourCenter.x) - this._LINE_WIDTH_PX;
-		pts[1] = middle(ourCenter.y - this.getDimensions().y / 2 - 3);
-		pts[2] = middle(theirCenter.x) - this._LINE_WIDTH_PX;
-		pts[3] = middle(theirCenter.y + NODES[this._pid].getDimensions().y / 2 - 3);
-		
-		this._lineToParent.points(pts);
-		KinSTAGE.draw();
-	}
-	
-	this.setParent = function(pid) {
-		this._pid = pid;
-		var ourCenter = this.getCanvasRelativeCenter();
-		var theirCenter = NODES[pid].getCanvasRelativeCenter();
-		
-		if(this._lineToParent != undefined) 
-			this._lineToParent.destroy();
-			
-		this._lineToParent = new Kinetic.Line({
-								points: [middle(ourCenter.x) - this._LINE_WIDTH_PX, 
-										middle(ourCenter.y - this.getDimensions().y / 2 - 3), 
-										middle(theirCenter.x) - this._LINE_WIDTH_PX, 
-										middle(theirCenter.y + NODES[this._pid].getDimensions().y / 2 - 3)],
-								stroke: '#000000',
-								strokeWidth: this._LINE_WIDTH_PX,
-								listening: true,
-								id: this.id
-							});
-
-		this._lineToParent.on("click", clickLine);
-
-		var me = this;
-		//Make a larger line to click on
-		this._lineToParent.hitFunc(function(ctx) {
-			ctx.beginPath();
-			ctx.moveTo(this.getPoints()[0], this.getPoints()[1]);
-			ctx.lineTo(this.getPoints()[2], this.getPoints()[3]);
-			ctx.closePath();
-			var originalWidth = this.getStrokeWidth();
-			this.setStrokeWidth(me._LINE_CLICK_WIDTH);
-			ctx.fillStrokeShape(this);
-			this.setStrokeWidth(originalWidth);
-		});
-
-		KinLAYER.add(this._lineToParent);
-		KinSTAGE.draw();
-		
-		this.signalModification();
-	}
-
-	this.hasParent = function() {
-		return this._pid != undefined;
-	}
-
-	this.parentRemoved = function() {
-		this._pid = undefined;
-		this._lineToParent.destroy();
-		this._lineToParent = undefined;
-		KinSTAGE.draw();
-		
-		this.signalModification();
-	}
-
-	this.getCanvasRelativeCenter = function() {
-		var left = parseInt(this._$node.css("left"));
-		var top = parseInt(this._$node.css("top"));
-		
-		return {x: (left + Math.ceil(this._$node.outerWidth() / 2)),
-				y: (top + Math.ceil(this._$node.outerHeight() / 2))};
-	}
-
-	this.lineSelected = function() {
-		return this._lineSelected;
-	}
-
-	this.selectLine = function() {
-		if(this._lineToParent != undefined) {
-			this._lineToParent.stroke("#7FFFD4");
-			this._lineSelected = true;
-		}
-	}
-
-	this.deselectLine = function() {
-		if(this._lineToParent != undefined) {
-			this._lineToParent.stroke("#000000");
-			this._lineSelected = false;
-		}
-	}
-
-	this.removeLine = function() {
-		NODES[this._pid].removeChild(this.id); // Parent signals modification here
-		this.parentRemoved(); // We signal modification here
-		this._lineSelected = false;
-	}
-
-	this.toggleTheta = function() {
-		this._theta = !this._theta;
-		this.updateThetaVisual();
-		this.signalModification();
-	}
-	
-	this.updateThetaVisual = function() {
-		if(this._theta) {
-			this._$theta[0].innerHTML = "\u03B8";
-		} else {
-			this._$theta[0].innerHTML = "";
-		}
-		
-		this._$theta.css("margin-left", (this._theta ? "5px" : "0px"));
-		this.hasMoved();
-	}
-	
-	this.toggleCase = function() {
-		this._case = !this._case;
-		this.updateCaseVisual();
-		this.signalModification();
-	}
-	
-	this.updateCaseVisual = function() {
-		if(this._case) {
-			this._$case[0].innerHTML = "\u03F0";
-		} else {
-			this._$case[0].innerHTML = "";
-		}
-		
-		this._$case.css("margin-left", (this._case ? "3px" : "0px"));
-		this.hasMoved();
-	}
-	
-	this.signalModification = function() {
-		if(SAVER != undefined)
-			SAVER.signalModification(this.id);
-	}
-	
-	this.centerOn = function(x, y) {
-		var dimensions = this.getDimensions();
-		var position = {top: y - dimensions.y / 2, left: x - dimensions.x / 2};
-		this._$node.css(this.centerGridPosition(position));
-		this.hasMoved();
-	}
-	
-	this.edit = function(ev, ed) {
-		if(ed.val().length == 0)
-			ed.css("width", this._EDIT_MIN_WIDTH + "px");
-		
-		var me = this;
-		var oldCenter = this._lastMove;
-		ed.autoGrowInput({
-			/* A nonzero comfortZone will cause problems because the node 
-			will have different widths when edited and not edited. */
-			comfortZone: 0, 
-			minWidth: me._EDIT_MIN_WIDTH,
-			callback: function() {
-				me.centerOn(oldCenter.x, oldCenter.y);
-			}
-		});
-		
-		ed.select(); //Obtain immediate keyboard focus on the editor
-	}
-	
-	this.basicInit = function(id, theta, _case) {
-		this._chids = {};
-		this._lineToParent = undefined; //Kinetic Line between this node and its parent
-		this._lineSelected = false;
-		this._pid = undefined;
-		this.id = id;
-		this._theta = theta != undefined ? theta : false;
-		this._case = _case != undefined ? _case : false;
-		this._xOffset = 0;
-		
-		this.dragOffset = {left: 0, top: 0};
-	}
-	
-	this.isLeaf = function() {
-		for(child in this._chids)
-			return false;
-			
-		return true;
-	}
-	
-	/* Move this node to the specified top/left position
-	*/
-	this.move = function(left, top) {
-		var correct = this.centerGridPosition({top: top, left: left});
-		this._$node.css({top: correct.top + "px", left: correct.left + "px"});
-		this.hasMoved();
-	}
-	
-	//TODO Refactor those two functions
-	this.extremeLeft = function(offset) {
-		if(this.isLeaf())
-			return Math.abs(offset - this.getDimensions().x / 2);
-		
-		var minOffset = undefined;
-		var minChild;
-		for(child in this._chids) {
-			if(minOffset == undefined || NODES[child]._xOffset < minOffset) {
-				minOffset = NODES[child]._xOffset;
-				minChild = child;
-			}
-		}
-		
-		return NODES[minChild].extremeLeft(offset + minOffset);
-	}
-	
-	this.extremeRight = function(offset) {
-		if(this.isLeaf())
-			return offset + this.getDimensions().x / 2;
-		
-		var maxOffset = undefined;
-		var maxChild;
-		for(child in this._chids) {
-			if(maxOffset == undefined || NODES[child]._xOffset > maxOffset) {
-				maxOffset = NODES[child]._xOffset;
-				maxChild = child;
-			}
-		}
-		
-		return NODES[maxChild].extremeRight(offset + maxOffset);
-	}
-	
-	this.subtreeWidth = function() {
-		return this.extremeRight(0) + this.extremeLeft(0);
-	}
-	
-	this.prettify = function(idOrder) {
-		if(this.isLeaf())
-			this._xOffset = 0;
-		else {
-			for(child in this._chids)
-				NODES[child].prettify();
-				
-			var shift = 0;
-			var numChildren = 0;
-			var orderedChildren = [];
-			for(child in this._chids) {
-				numChildren++;
-				orderedChildren.push(child);
-			}
-			
-			if(idOrder) 
-				orderedChildren.sort();
-			else
-				orderedChildren.sort(function(a, b) {
-					var aX = NODES[a].getCanvasRelativeCenter().x;
-					var bX = NODES[b].getCanvasRelativeCenter().x;
-					return aX - bX;
-				});
-				
-			var i = Math.floor(numChildren / 2) - 1;
-			var j = i + 1;
-			
-			if(numChildren % 2 == 1) { //Account for the central element (which has no shift)
-				var cntr = orderedChildren[i + 1];
-				shift = Math.max(NODES[cntr].extremeRight(0), NODES[cntr].extremeLeft(0));
-				j++;
-			}
-			
-			while(i >= 0) {
-				var iCh = orderedChildren[i], jCh = orderedChildren[j];
-				var displacement = Math.max(NODES[iCh].extremeRight(0), NODES[jCh].extremeLeft(0));
-				displacement += shift + this._MIN_NODE_DISTANCE;
-				shift += Math.max(NODES[iCh].subtreeWidth(), NODES[jCh].subtreeWidth()) + this._MIN_NODE_DISTANCE;
-				
-				
-				NODES[iCh]._xOffset = Math.round(-displacement);
-				NODES[jCh]._xOffset = Math.round(displacement);
-				i--;
-				j++;
-			}
-		}
-	}
-	
-	this.prettyPosition = function(root) {
-		if(!root) {
-			var parentPos = NODES[this._pid].getCanvasRelativeCenter();
-			var dimensions = this.getDimensions();
-			var x = parentPos.x - dimensions.x / 2 + this._xOffset;
-			var y = parentPos.y + NODES[this._pid].getDimensions().y / 2 + this._NODE_VERTICAL_SPACE;
-			this.move(x, y);
-		} else {
-			//If the tree would end up outside of the canvas area, move it
-			var currentLeft = parseInt(this._$node.css("left"));
-			var leftBoundary = this.extremeLeft(0);
-			var outside = currentLeft - leftBoundary;
-			if(outside < 0) {
-				this.move(currentLeft - outside, parseInt(this._$node.css("top")));
-			}
-		}
-		
-		for(chid in this._chids)
-			NODES[chid].prettyPosition(false);
-	}
-	
-	this.makeEditable = function($elem, empty, length) {
-		var me = this;
-		$elem.addClass("editable");
-		$elem.editable({
-			toggleFontSize: false,
-			closeOnEnter: true,
-			emptyMessage: empty,
-			maxLength: length,
-			callback: function(data) {
-				EDITED = undefined;
-				me.signalModification();
-			}
-		}).dblclick(function(e) { me.dblClick.call(me, e); })
-		.data('id', this.id)
-		.on('edit', function(ev, ed) {
-			me._oldCenter = me.getCanvasRelativeCenter();
-			me.edit.call(me, ev, ed);
-		});
-	}
-	
-	this.createSkeleton = function(posStr) {
-		var node = document.createElement('div');
-		
-		// Temporary position before the node is moved to its final spot
-		node.style.top = "10px";
-		node.style.left = "10px";
-		
-		node.className = "node";
-		node.style.position = "absolute";
-		node.id = "nid_" + this.id;
-
-		var pos = document.createElement('span');
-		if(posStr != undefined)
-			pos.innerHTML = posStr;
-
-		var theta = document.createElement('span');
-		theta.className = "thetaRole";
-		
-		var caseMarker = document.createElement('span');
-		caseMarker.className = "caseMarker";
-		
-		var container = document.createElement('div');
-		container.appendChild(pos);
-		container.appendChild(theta);
-		container.appendChild(caseMarker);
-		
-		node.appendChild(container);
-		
-		this._$node = $(node);
-		this._$pos = $(pos);
-		this._$theta = $(theta);
-		this._$case = $(caseMarker);
-		
-		var mainCanvas = document.getElementById("mainCanvas");
-		var mainCanvasPos = mainCanvas.getBoundingClientRect();
-		var me = this;
-		this._$node.draggable({
-			start: function(e, u) { me.startDragging.call(me, e, u); },
-			drag: function(e, u) { return me.drag.call(me, e, u); },
-			//Contain inside the canvas, only on the top and left sides (right and bottom are unlimited)
-			containment: [mainCanvasPos.left + 3, mainCanvasPos.top + 3, undefined, undefined], //TODO Use real padding
-			distance: 5
-		}).click(function(e) { me.click.call(me, e); })
-		.dblclick(function(e) { e.stopPropagation(); }) //Prevent double-click from reaching main canvas
-		.data('id', this.id);
-		
-		/* 	Hack: modify the position generation of jQuery so that dragging aligns node centers on a 10x10 grid.
-			The grid functionality uses a "relative" grid (in increments of x/y from current
-			position), which is not what we want. */
-		$nodeDrag = this._$node.data("draggable");
-		if($nodeDrag.__proto__.oldGeneratePosition === undefined)
-			$nodeDrag.__proto__.oldGeneratePosition = $nodeDrag._generatePosition;
-
-		$nodeDrag._generatePosition = function(ev) {
-			var pos = me._$node.data("draggable").oldGeneratePosition(ev);
-			return me.centerGridPosition(pos);
-		}
-		
-		this.makeEditable(this._$pos, this._EMPTY_POS, 10);
-		
-		this.updateCaseVisual();
-		this.updateThetaVisual();
-		
-		return node;
-	}
-}
-
+Node.prototype = new BasicNode();
+Node.prototype.constructor = Node;
 function Node(id, x, y, posStr, contentStr, theta, _case) {
 	this.basicInit(id, theta, _case);
 	this._traceId = undefined;
@@ -613,9 +32,6 @@ function Node(id, x, y, posStr, contentStr, theta, _case) {
 		SAVER.signalModification(this.id);
 }
 
-NodeMixin.call(Node.prototype);
-var mxNoRemove = Node.prototype.remove;
-
 Node.prototype.simplify = function() {
 	var simple = {
 		id: this.id,
@@ -637,21 +53,8 @@ Node.prototype.simplify = function() {
 	return simple;
 }
 
-Node.prototype.hideContent = function() {
-	this._$container.css("display", "none");
-	this.hasMoved();
-}
-
-Node.prototype.showContent = function() {
-	this._$container.css("display", "block");
-	this.hasMoved();
-}
-
-Node.prototype.remove = function() {
-	if(this._traceId != undefined)
-		NODES[this._traceId].traceeRemoved();
-	
-	mxNoRemove.call(this);
+Node.prototype.isEditing = function() {
+	return (this._$pos.is(":editing") || this._$content.is(":editing"))
 }
 
 Node.prototype.stopEditing = function() {
@@ -662,8 +65,28 @@ Node.prototype.stopEditing = function() {
 		this._$content.editable("close");
 }
 
-Node.prototype.isEditing = function() {
-	return (this._$pos.is(":editing") || this._$content.is(":editing"))
+Node.prototype.hideContent = function() {
+	this._$container.css("display", "none");
+	this.hasMoved();
+}
+
+Node.prototype.showContent = function() {
+	this._$container.css("display", "block");
+	this.hasMoved();
+}
+
+Node.prototype.toggleContent = function() {
+	if(this._$container.css("display") == "none")
+		this.showContent();
+	else
+		this.hideContent();
+}
+
+Node.prototype.remove = function() {
+	if(this._traceId != undefined)
+		NODES[this._traceId].traceeRemoved();
+	
+	BasicNode.prototype.remove.call(this);
 }
 
 Node.prototype.spawnChild = function(isTrace) {
@@ -725,13 +148,8 @@ Node.prototype.traceRemoved = function() {
 	this.signalModification();
 }
 
-Node.prototype.toggleContent = function() {
-	if(this._$container.css("display") == "none")
-		this.showContent();
-	else
-		this.hideContent();
-}
-
+Trace.prototype = new BasicNode();
+Trace.prototype.constructor = Trace;
 function Trace(id, x, y, traceId, posStr, theta, _case) {
 	this.basicInit(id, theta, _case);
 	this.traceId = traceId;
@@ -749,9 +167,6 @@ function Trace(id, x, y, traceId, posStr, theta, _case) {
 	if(SAVER != undefined)
 		SAVER.signalModification(this.id);
 }
-
-NodeMixin.call(Trace.prototype);
-var mxTrRemove = Trace.prototype.remove;
 
 Trace.generateId = function() {
 	
@@ -799,17 +214,17 @@ Trace.prototype.stopEditing = function() {
 		this._$pos.editable("close");
 }
 
-Trace.prototype.linkTracee = function(traceeId) {
-	this._traceeId = traceeId;
-	
-	this.signalModification();
-}
-
 Trace.prototype.remove = function() {
 	if(this._traceeId != undefined)
 		NODES[this._traceeId].traceRemoved();
 	
-	mxTrRemove.call(this);
+	BasicNode.prototype.remove.call(this);
+}
+
+Trace.prototype.linkTracee = function(traceeId) {
+	this._traceeId = traceeId;
+	
+	this.signalModification();
 }
 
 Trace.prototype.traceeRemoved = function() {
