@@ -1,8 +1,8 @@
 $bodyMargin: 8px;
 $zoneBorder: 2px;
-$operationsMenuWidth: 150px;
 $mainCanvasHeight: 300px;
 $zoneBgColor: #E8FFFF;
+$opMenuHeight: 50px;
 
 #mainCanvas .ui-selecting { border: 2px solid #AAA; }
 #mainCanvas .ui-selected { border: 2px solid aquamarine; }
@@ -11,16 +11,23 @@ body {
 	margin: $bodyMargin;
 }
 
-#operationsMenu {
-	float: left;
-	width: $operationsMenuWidth;	
+#operationsMenuOuter {
+	height: $opMenuHeight;
+	position: relative;
+	margin-bottom: 4px;
+}
+
+#operationsMenuInner {
+	position: absolute;
+	height: $opMenuHeight;
+	top: 50%;
+	margin-top: -($opMenuHeight / 4);
 }
 
 #mainCanvas {
 	position: relative; 
 	overflow: auto;
 	height: $mainCanvasHeight;
-	margin-left: $operationsMenuWidth + 12px;
 	z-index: 50;
 	background-color: $zoneBgColor;
 }

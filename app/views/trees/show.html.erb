@@ -11,17 +11,19 @@
 <% end %>
 
 <div class="elemsContainer">
-	<div id="operationsMenu" class="zone">
-		<h3> <%= @tree.name %></h3>
-		<input id="btnLink" type="submit" value="Link"/><br/>
-		<input id="btnCreateChild" type="submit" value="Child"/><br/>
-		<input id="btnSave" type="submit" value="Save"/><br/>
-		<input id="btnTrace" type="submit" value="Trace"/><br/>
-		<input id="btnTheta" type="submit" value="Theta"/><br/>
-		<input id="btnCase" type="submit" value="Case"/><br/>
-		<input id="btnPretty" type="submit" value="Prettify"/><br/>
-		<input id="btnContent" type="submit" value="Contents"/><br/>
-		<span id="saveMessage"></span>
+	<div id="operationsMenuOuter" class="zone">
+		<div id="operationsMenuInner">
+			<h3 style="display:inline"> <%= @tree.name %></h3>
+			<input id="btnLink" type="submit" value="Link"/>
+			<input id="btnCreateChild" type="submit" value="Child"/>
+			<input id="btnSave" type="submit" value="Save"/>
+			<input id="btnTrace" type="submit" value="Trace"/>
+			<input id="btnTheta" type="submit" value="Theta"/>
+			<input id="btnCase" type="submit" value="Case"/>
+			<input id="btnPretty" type="submit" value="Prettify"/>
+			<input id="btnContent" type="submit" value="Contents"/>
+			<span id="saveMessage"></span>
+		</div>
 	</div>
 
 	<div id="mainCanvas" class="zone" >
