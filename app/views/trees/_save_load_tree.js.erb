@@ -118,17 +118,15 @@ if not nodes.nil?
 	max_rel_id = -1
 	trace_offset = 0
 	nodes.each do |node| 
-		if node['relative_id'] > max_rel_id
-			max_rel_id = node['relative_id']
+		if node.relative_id > max_rel_id
+			max_rel_id = node.relative_id
 		end 
 		
-		if node['type'] == 'Node' %>
-			NODES[<%= node['relative_id'] %>] = new Node(<%= node['relative_id'] %>, <%= node['x'] %>, <%= node['y'] %>, "<%= node['part_of_speech'] %>", "<%= node['contents'] %>", <%= node['theta'] %>, <%= node['case_marker'] %>);
-<%		else %>
-			NODES[<%= node['relative_id'] %>] = new Trace(<%= node['relative_id'] %>, <%= node['x'] %>, <%= node['y'] %>, "<%= node['trace_idx'] %>", "<%= node['part_of_speech'] %>", <%= node['theta'] %>, <%= node['case_marker'] %>);
-<%			trace_offset += 1
-		end
-	end 
+		if node.type == 'Trace'
+			trace_offset += 1 
+		end %>
+		NODES[<%= node.relative_id %>] = new <%= node.type %>({<%= node.to_s.html_safe %>});
+<%	end 
 	if trace_offset != 0
 		trace_offset -= 1
 	end
@@ -139,9 +137,9 @@ if not nodes.nil?
 <%	
 # Link the traces
 	nodes.each do |node|
-		if not node['trace_id'].nil? %>
-			NODES[<%= node['relative_id'] %>].linkTrace(<%= node['trace_id'] %>);
-			NODES[<%= node['trace_id'] %>].linkTracee(<%= node['relative_id'] %>);
+		if not node.trace_id.nil? %>
+			NODES[<%= node.relative_id %>].linkTrace(<%= node.trace_id %>);
+			NODES[<%= node.trace_id %>].linkTracee(<%= node.relative_id %>);
 <%		end
 	end
 	
@@ -152,6 +150,7 @@ if not nodes.nil?
 <%		end
 	end
 	
+	# If we just imported, give the tree a pretty position
 	if @import %>
 		NODES[0].prettify(true); //Use ID order since no positions exist yet
 		NODES[0].prettyPosition(true);

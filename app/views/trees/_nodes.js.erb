@@ -1,14 +1,14 @@
 Node.prototype = new BasicNode();
 Node.prototype.constructor = Node;
-function Node(id, x, y, posStr, contentStr, theta, _case) {
-	this.basicInit(id, theta, _case);
+function Node(opts) {
+	this.basicInit(opts.id, opts.theta, opts.caseMarker);
 	this._traceId = undefined;
 	
-	var node = this.createSkeleton(posStr);
+	var node = this.createSkeleton(opts.pos);
 	
 	var content = document.createElement('span');
-	if(contentStr != undefined)
-		content.innerHTML = contentStr;
+	if(opts.contents != undefined)
+		content.innerHTML = opts.contents;
 	
 	var trace = document.createElement('sub');
 	trace.className = "trace";
@@ -27,7 +27,7 @@ function Node(id, x, y, posStr, contentStr, theta, _case) {
 	
 	this.makeEditable(this._$content, this._EMPTY_CONTENT);
 	
-	this.move(x, y);
+	this.move(opts.x, opts.y);
 	if(SAVER != undefined)
 		SAVER.signalModification(this.id);
 }
@@ -150,12 +150,12 @@ Node.prototype.traceRemoved = function() {
 
 Trace.prototype = new BasicNode();
 Trace.prototype.constructor = Trace;
-function Trace(id, x, y, traceId, posStr, theta, _case) {
-	this.basicInit(id, theta, _case);
-	this.traceId = traceId;
+function Trace(opts) {
+	this.basicInit(opts.id, opts.theta, opts.caseMarker);
+	this.traceId = opts.traceId;
 	this._traceeId = undefined;
 	
-	var node = this.createSkeleton(posStr);
+	var node = this.createSkeleton(opts.pos);
 	
 	var trace = document.createElement('div');
 	trace.innerHTML = "<i>t</i><sub>" + traceId + "</sub>";
@@ -163,7 +163,7 @@ function Trace(id, x, y, traceId, posStr, theta, _case) {
 	node.appendChild(trace);
 	mainCanvas.appendChild(node);
 	
-	this.move(x, y);
+	this.move(opts.x, opts.y);
 	if(SAVER != undefined)
 		SAVER.signalModification(this.id);
 }
