@@ -112,6 +112,11 @@ BasicNode.prototype.getCanvasRelativeCenter = function() {
 			y: (top + Math.ceil(this._$node.outerHeight() / 2))};
 }
 
+BasicNode.prototype.getTopLeft = function() {
+	return {left: parseInt(this._$node.css("left")), 
+			top: parseInt(this._$node.css("top"))};
+}
+
 BasicNode.prototype.centerOn = function(x, y) {
 	var dimensions = this.getDimensions();
 	var position = {top: y - dimensions.y / 2, left: x - dimensions.x / 2};

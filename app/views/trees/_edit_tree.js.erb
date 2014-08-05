@@ -98,6 +98,31 @@ function offsetTo10s(num) {
 		return -10 + r; //Round up
 }
 
+function nonOverlappingPosition(left, top) {
+	var positionFound = false;
+	while(!positionFound) {
+		// Check all nodes to see if current top/left overlaps with one of them
+		var overlaps = false;
+		allNodes(function(node) {
+			var topLeft = node.getTopLeft();
+			//Minimal "non-overlap" distance is 6 (because of the 10x10 grid)
+			if(Math.abs(topLeft.left - left) <= 5 && 
+					Math.abs(topLeft.top - top) <= 5) {
+				overlaps = true;
+				return false; //Stop iterating since we found an overlapping node
+			}
+		});
+		
+		//If current position overlaps, shift to the right.
+		if(!overlaps)
+			positionFound = true;
+		else
+			left += 40;
+	}
+	
+	return {top: top, left: left};
+}
+
 var middle = function(n) {
 	if(n - Math.floor(n) > 0)
 		return n;
@@ -143,7 +168,7 @@ $mainCanvas.selectable({
 	var x = e.pageX - mainCanvasPos.left;
 	var y = e.pageY - mainCanvasPos.top;
 
-	NODES[ID_COUNTER] = new Node(ID_COUNTER, x, y);
+	NODES[ID_COUNTER] = new Node({id: ID_COUNTER, x: x, y: y});
 	ID_COUNTER += 1;
 	
 	$(mainCanvas).selectable("refresh");
@@ -161,6 +186,17 @@ $(document.body).keydown(function(e) {
 		if (EDITED != undefined)
 			EDITED.stopEditing();
 	}
+});
+
+$("#btnAdd").click(function() {	
+	var node = new Node({id: ID_COUNTER, x: 10, y: 10});
+	NODES[ID_COUNTER] = node;
+	ID_COUNTER += 1;	
+	var pos = nonOverlappingPosition(($mainCanvas.outerWidth() - node.getDimensions().x) / 2, 
+									($mainCanvas.outerHeight() - node.getDimensions().y) / 2);
+	node.move(pos.left, pos.top);
+
+	$(mainCanvas).selectable("refresh");	
 });
 
 $("#btnCreateChild").click(function() {

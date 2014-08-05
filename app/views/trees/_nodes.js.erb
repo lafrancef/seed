@@ -91,18 +91,20 @@ Node.prototype.remove = function() {
 
 Node.prototype.spawnChild = function(isTrace) {
 	var center = this.getCanvasRelativeCenter();
+	var topLeft = this.getTopLeft();
 	
 	//TODO use actual border width
 	var newNode;
 	if(isTrace) {
-		newNode = new Trace(ID_COUNTER, 10, 10, Trace.generateId());
+		newNode = new Trace({id: ID_COUNTER, x: 10, y: 10, traceId: Trace.generateId()});
 	} else {
-		newNode = new Node(ID_COUNTER, 10, 10);
+		newNode = new Node({id: ID_COUNTER, x: 10, y: 10});
 	}
 	newNode.setParent(this.id);
 	this._chids[newNode.id] = true;
 	
-	newNode.move(center.x - newNode.getDimensions().x / 2, center.y + 50);
+	var pos = nonOverlappingPosition(center.x - newNode.getDimensions().x / 2, topLeft.top + 100);
+	newNode.move(pos.left, pos.top);
 
 	NODES[ID_COUNTER] = newNode;
 	
