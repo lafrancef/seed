@@ -10,48 +10,48 @@ var KinLAYER;
 var clickedLine = false; //Hack!
 
 function asNode(that) {
-	return NODES[$(that).data('id')];
+	return NODES[$(that).data("id")];
 }
 
 //TODO Try to remove magic numbers throughout the code
 
 /* Execute a function on all the nodes in the tree. If func is a function name, a method of Node
-will be called, with params. If func is a function, the function will be called with a reference
+will be called. If func is a function, the function will be called with a reference
 to each node (stopping if func returns false). If filter is a function, the function is passed
 the nodes in turn, and func is called with them only if filter returns true. */
-function allNodes(func, params, filter) {
+function allNodes(func, filter) {
 	for(id in NODES) {
-		if(typeof filter === 'function') {
+		if(typeof filter === "function") {
 			if(!filter(NODES[id])) continue;
 		}
 	
 		var fn = NODES[id][func];
-		if(typeof NODES[id][func] === 'function') {
-			if(NODES[id][func](params) === false)
+		if(typeof NODES[id][func] === "function") {
+			if(NODES[id][func]() === false)
 				break;
-		} else if(typeof func === 'function') {
+		} else if(typeof func === "function") {
 			if(func(NODES[id]) === false)
 				break;
 		} else {
-			throw new Error('allNodes: first parameter must be either a function or a method of Node');
+			throw new Error("allNodes: first parameter must be either a function or a method of Node");
 		}
 	}
 }
 
-function allSelectedNodes(func, params) {
-	allNodes(func, params, function(node) {
+function allSelectedNodes(func) {
+	allNodes(func, function(node) {
 		return node.isSelected();
 	});
 }
 
-function allSelectedLines(func, params) {
-	allNodes(func, params, function(node) {
+function allSelectedLines(func) {
+	allNodes(func, function(node) {
 		return node.lineSelected();
 	});
 }
 
-function allTraces(func, params) {
-	allNodes(func, params, function(node) {
+function allTraces(func) {
+	allNodes(func, function(node) {
 		return (node instanceof Trace);
 	});
 }
@@ -67,7 +67,7 @@ function clickLine(e) {
 			  it was part of a multi-selection
 		*/
 		
-		allSelectedNodes('deselect');
+		allSelectedNodes("deselect");
 		
 		var numSel = 0;
 		allSelectedLines(function(node) {
@@ -76,7 +76,7 @@ function clickLine(e) {
 		});
 		
 		var wasSelected = possessingNode.lineSelected();
-		allSelectedLines('deselectLine');
+		allSelectedLines("deselectLine");
 	
 		if(!wasSelected || numSel > 1)
 			possessingNode.selectLine();
@@ -143,7 +143,7 @@ $mainCanvas.selectable({
 	/* Require a distance to activate selection. This is because we
 	want to override normal clicks. */
 	distance: 1,
-	filter: '.node', //Only select nodes (i.e. don't select KineticJS elements)
+	filter: ".node", //Only select nodes (i.e. don't select KineticJS elements)
 	start: function(e, ui) {
 		if(EDITED != undefined)
 			EDITED.stopEditing();
@@ -152,7 +152,7 @@ $mainCanvas.selectable({
 	/* If we get here, it means we did not click on a child
 	div. Therefore, deselect everything. */		
 	if(!e.shiftKey && !clickedLine) {
-		allNodes('deselect');
+		allNodes("deselect");
 		allSelectedLines("deselectLine");
 			
 		KinSTAGE.draw();
@@ -168,7 +168,7 @@ $mainCanvas.selectable({
 	var x = e.pageX - mainCanvasPos.left;
 	var y = e.pageY - mainCanvasPos.top;
 
-	NODES[ID_COUNTER] = new Node({id: ID_COUNTER, x: x, y: y});
+	NODES[ID_COUNTER] = new Node({id: ID_COUNTER, x: x, y: y, showContent: true, showTriangle: false});
 	ID_COUNTER += 1;
 	
 	$(mainCanvas).selectable("refresh");
@@ -177,12 +177,12 @@ $mainCanvas.selectable({
 $(document.body).keydown(function(e) {
 	if(e.keyCode == 46) { //Delete key
 		if (EDITED == undefined) {
-			allSelectedNodes('remove');
-			allSelectedLines('removeLine');
+			allSelectedNodes("remove");
+			allSelectedLines("removeLine");
 		}
 	} else if(e.keyCode == 27) { //Escape key
-		allNodes('deselect');
-		allNodes('deselectLine');
+		allNodes("deselect");
+		allNodes("deselectLine");
 		if (EDITED != undefined)
 			EDITED.stopEditing();
 	}
@@ -245,6 +245,13 @@ $("#btnContent").click(function() {
 	allSelectedNodes(function(n) {
 		if(n instanceof Node && n.isLeaf())
 			n.toggleContent();
+	});
+});
+
+$("#btnTriangle").click(function() {
+	allSelectedNodes(function(n) {
+		if(n instanceof Node)
+			n.toggleTriangle();
 	});
 });
 

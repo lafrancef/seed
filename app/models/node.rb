@@ -8,6 +8,8 @@ class Node < ActiveRecord::Base
 			", pos: \"" + self.part_of_speech.to_s +
 			"\", contents: \"" + self.contents.to_s +
 			"\", theta: " + self.theta.to_s +
-			", caseMarker: " + self.case_marker.to_s
+			", caseMarker: " + self.case_marker.to_s +
+			", showContent: " + self.show_content.to_s +
+			", showTriangle: " + self.show_triangle.to_s
   end
 end

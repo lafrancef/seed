@@ -1,20 +1,38 @@
 Node.prototype = new BasicNode();
 Node.prototype.constructor = Node;
+Node._TRIANGLE_HEIGHT = 30;
+Node._TRIANGLE_BORDER_WIDTH = 2;
+
 function Node(opts) {
 	this.basicInit(opts.id, opts.theta, opts.caseMarker);
 	this._traceId = undefined;
+	this._content = opts.showContent;
+	this._triangle = opts.showTriangle;
 	
 	var node = this.createSkeleton(opts.pos);
 	
-	var content = document.createElement('span');
+	var content = document.createElement("span");
 	if(opts.contents != undefined)
 		content.innerHTML = opts.contents;
-	
-	var trace = document.createElement('sub');
+
+	var trace = document.createElement("sub");
 	trace.className = "trace";
 	
-	var container = document.createElement('div');
-	
+	//The SVG element must be created in one go, otherwise it won't render properly
+	this._$triangle = $('<svg xmlns="http://www.w3.org/2000/svg" ' +
+						'version="1.1" viewbox="0 0 100 100" ' +
+						'preserveaspectratio="none">' +
+						'<polygon points="0,99 50,0 100,99" ' +
+						'style="fill:white; stroke:black; stroke-width:' +
+						Node._TRIANGLE_BORDER_WIDTH + ';"/></svg>');
+		
+	this._$triangle.css("height", Node._TRIANGLE_HEIGHT + "px")
+					.css("width", this._EDIT_MIN_WIDTH + "px")
+					.css("display", "block")
+					.css("margin", "auto");
+					
+	var container = document.createElement("div");
+	container.appendChild(this._$triangle[0]);
 	container.appendChild(content);
 	container.appendChild(trace);
 	node.appendChild(container);
@@ -25,8 +43,11 @@ function Node(opts) {
 	this._$trace = $(trace);
 	this._$container = $(container);
 	
-	this.makeEditable(this._$content, this._EMPTY_CONTENT);
+	this.makeEditable(this._$content, this._EMPTY_CONTENT, 140);
 	
+	this.updateTriangle();
+	this.updateTriangleVisual();
+	this.updateContentVisual();
 	this.move(opts.x, opts.y);
 	if(SAVER != undefined)
 		SAVER.signalModification(this.id);
@@ -41,7 +62,9 @@ Node.prototype.simplify = function() {
 		"case": this._case,
 		theta: this._theta,
 		trace_id: this._traceId,
-		type: "Node"
+		type: "Node",
+		show_content: this._content,
+		show_triangle: this._triangle
 	}
 	
 	if(this._$pos[0].innerHTML != this._EMPTY_POS)
@@ -65,21 +88,40 @@ Node.prototype.stopEditing = function() {
 		this._$content.editable("close");
 }
 
-Node.prototype.hideContent = function() {
-	this._$container.css("display", "none");
-	this.hasMoved();
-}
-
-Node.prototype.showContent = function() {
-	this._$container.css("display", "block");
-	this.hasMoved();
-}
-
 Node.prototype.toggleContent = function() {
-	if(this._$container.css("display") == "none")
-		this.showContent();
+	this._content = !this._content;
+	this.updateContentVisual();
+	this.signalModification();
+}
+
+Node.prototype.updateContentVisual = function() {
+	if(this._content)
+		this._$container.css("display", "block");
 	else
-		this.hideContent();
+		this._$container.css("display", "none");
+		
+	this.hasMoved();
+}
+
+Node.prototype.toggleTriangle = function() {
+	this._triangle = !this._triangle;
+	this.updateTriangleVisual();
+	this.signalModification();
+}
+
+Node.prototype.updateTriangleVisual = function() {
+	if(this._triangle)
+		this._$triangle.css("display", "block");
+	else
+		this._$triangle.css("display", "none");
+		
+	this.hasMoved();
+}
+
+Node.prototype.updateTriangle = function() {
+	var w = this._$content.outerWidth();
+	if(w >= this._EDIT_MIN_WIDTH)
+		this._$triangle.css("width", w + "px");
 }
 
 Node.prototype.remove = function() {
@@ -111,7 +153,8 @@ Node.prototype.spawnChild = function(isTrace) {
 	ID_COUNTER += 1;
 	this.signalModification();
 	
-	this.hideContent();
+	if(this._content)
+		this.toggleContent();
 	$(mainCanvas).selectable("refresh");
 }
 
@@ -124,8 +167,8 @@ Node.prototype.removeChild = function(chid) {
 	for(chid in this._chids)
 		count++;
 		
-	if(count == 0)
-		this.showContent();
+	if(count == 0 && !this._content)
+		this.toggleContent();
 }
 
 Node.prototype.linkNewChild = function(chid) {
@@ -133,7 +176,8 @@ Node.prototype.linkNewChild = function(chid) {
 	NODES[chid].setParent(this.id); //Child signals its modification here
 	this.signalModification();
 	
-	this.hideContent();
+	if(this._content)
+		this.toggleContent();
 }
 
 Node.prototype.linkTrace = function(traceId) {
@@ -154,13 +198,13 @@ Trace.prototype = new BasicNode();
 Trace.prototype.constructor = Trace;
 function Trace(opts) {
 	this.basicInit(opts.id, opts.theta, opts.caseMarker);
-	this.traceId = opts.traceId;
+	this.traceId = opts.traceIdx;
 	this._traceeId = undefined;
 	
 	var node = this.createSkeleton(opts.pos);
 	
-	var trace = document.createElement('div');
-	trace.innerHTML = "<i>t</i><sub>" + traceId + "</sub>";
+	var trace = document.createElement("div");
+	trace.innerHTML = "<i>t</i><sub>" + this.traceId + "</sub>";
 	
 	node.appendChild(trace);
 	mainCanvas.appendChild(node);

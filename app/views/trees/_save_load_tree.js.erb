@@ -122,7 +122,7 @@ if not nodes.nil?
 			max_rel_id = node.relative_id
 		end 
 		
-		if node.type == 'Trace'
+		if node.type == "Trace"
 			trace_offset += 1 
 		end %>
 		NODES[<%= node.relative_id %>] = new <%= node.type %>({<%= node.to_s.html_safe %>});
@@ -145,8 +145,8 @@ if not nodes.nil?
 	
 	# Then link them to their parents
 	nodes.each do |node| 
-		if not node['pid'].nil? %>
-			NODES[<%= node['pid'] %>].linkNewChild(<%= node['relative_id'] %>);
+		if not node.pid.nil? %>
+			NODES[<%= node.pid %>].linkNewChild(<%= node.relative_id %>);
 <%		end
 	end
 	

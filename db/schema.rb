@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20140625014733) do
+ActiveRecord::Schema.define(version: 20140806204006) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -31,6 +31,8 @@ ActiveRecord::Schema.define(version: 20140625014733) do
     t.string   "trace_idx",      limit: 3
     t.boolean  "case_marker"
     t.boolean  "theta"
+    t.boolean  "show_content"
+    t.boolean  "show_triangle"
   end
 
   add_index "nodes", ["tree_id"], name: "index_nodes_on_tree_id", using: :btree

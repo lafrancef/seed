@@ -22,7 +22,7 @@ BasicNode.prototype.basicInit = function(id, theta, _case) {
 }
 
 BasicNode.prototype.createSkeleton = function(posStr) {
-	var node = document.createElement('div');
+	var node = document.createElement("div");
 	
 	// Temporary position before the node is moved to its final spot
 	node.style.top = "10px";
@@ -32,17 +32,17 @@ BasicNode.prototype.createSkeleton = function(posStr) {
 	node.style.position = "absolute";
 	node.id = "nid_" + this.id;
 
-	var pos = document.createElement('span');
+	var pos = document.createElement("span");
 	if(posStr != undefined)
 		pos.innerHTML = posStr;
 
-	var theta = document.createElement('span');
+	var theta = document.createElement("span");
 	theta.className = "thetaRole";
 	
-	var caseMarker = document.createElement('span');
+	var caseMarker = document.createElement("span");
 	caseMarker.className = "caseMarker";
 	
-	var container = document.createElement('div');
+	var container = document.createElement("div");
 	container.appendChild(pos);
 	container.appendChild(theta);
 	container.appendChild(caseMarker);
@@ -65,7 +65,7 @@ BasicNode.prototype.createSkeleton = function(posStr) {
 		distance: 5
 	}).click(function(e) { me.click.call(me, e); })
 	.dblclick(function(e) { e.stopPropagation(); }) //Prevent double-click from reaching main canvas
-	.data('id', this.id);
+	.data("id", this.id);
 	
 	/* 	Hack: modify the position generation of jQuery so that dragging aligns node centers on a 10x10 grid.
 		The grid functionality uses a "relative" grid (in increments of x/y from current
@@ -160,7 +160,7 @@ BasicNode.prototype.startDragging = function(ev, ui) {
 		});
 	} else {
 		//Otherwise we want to drag only the current node
-		allNodes('deselect');
+		allNodes("deselect");
 		this.select();
 	}
 	this.dragOffset = this._$node.offset();
@@ -241,7 +241,7 @@ BasicNode.prototype.click = function(e){
 		
 		var wasSelected = this.isSelected();
 	
-		allNodes('deselect');
+		allNodes("deselect");
 		if (!wasSelected || numSel > 1)
 			this.startSelecting();
 	} else {
@@ -249,7 +249,7 @@ BasicNode.prototype.click = function(e){
 		this.toggle();
 	}
 	
-	$( "#mainCanvas" ).data("selectable")._mouseStop(null);
+	$("#mainCanvas").data("selectable")._mouseStop(null);
 }
 
 BasicNode.prototype.startSelecting = function() {
@@ -314,7 +314,7 @@ BasicNode.prototype.setParent = function(pid) {
 									middle(ourCenter.y - this.getDimensions().y / 2 - 3), 
 									middle(theirCenter.x) - this._LINE_WIDTH_PX, 
 									middle(theirCenter.y + NODES[this._pid].getDimensions().y / 2 - 3)],
-							stroke: '#000000',
+							stroke: "#000000",
 							strokeWidth: this._LINE_WIDTH_PX,
 							listening: true,
 							id: this.id
@@ -444,6 +444,8 @@ BasicNode.prototype.edit = function(ev, ed) {
 		minWidth: me._EDIT_MIN_WIDTH,
 		callback: function() {
 			me.centerOn(oldCenter.x, oldCenter.y);
+			if(me instanceof Node) //BIG HACK
+				me.updateTriangle();
 		}
 	});
 	
@@ -463,8 +465,8 @@ BasicNode.prototype.makeEditable = function($elem, empty, length) {
 			me.signalModification();
 		}
 	}).dblclick(function(e) { me.dblClick.call(me, e); })
-	.data('id', this.id)
-	.on('edit', function(ev, ed) {
+	.data("id", this.id)
+	.on("edit", function(ev, ed) {
 		me._oldCenter = me.getCanvasRelativeCenter();
 		me.edit.call(me, ev, ed);
 	});

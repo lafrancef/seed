@@ -56,8 +56,12 @@ class TreesController < ApplicationController
 			if node_json['type'] == 'Node'
 				node_obj.contents = node_json['content']
 				node_obj.trace_id = node_json['trace_id']
+				node_obj.show_content = node_json['show_content']
+				node_obj.show_triangle = node_json['show_triangle']
 			else
 				node_obj.trace_idx = node_json['trace_idx']
+				node_obj.show_content = false
+				node_obj.show_triangle = false
 			end
 			
 			node_obj.save
