@@ -33,6 +33,7 @@ Saver.prototype.tick = function() {
 		save = true;
 	}
 	
+	//TODO Consider moving the check for dirty count before setting save
 	if(save && this._dirtyCount > 0)
 		this.saveTree();
 }

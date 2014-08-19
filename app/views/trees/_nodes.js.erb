@@ -22,7 +22,7 @@ function Node(opts) {
 	this._$triangle = $('<svg xmlns="http://www.w3.org/2000/svg" ' +
 						'version="1.1" viewbox="0 0 100 100" ' +
 						'preserveaspectratio="none">' +
-						'<polygon points="0,99 50,0 100,99" ' +
+						'<polygon points="0,98 50,2 100,98" ' +
 						'style="fill:white; stroke:black; stroke-width:' +
 						Node._TRIANGLE_BORDER_WIDTH + ';"/></svg>');
 		
@@ -95,11 +95,14 @@ Node.prototype.toggleContent = function() {
 }
 
 Node.prototype.updateContentVisual = function() {
+	var oldCenter = this.getCanvasRelativeCenter();
+	
 	if(this._content)
 		this._$container.css("display", "block");
 	else
 		this._$container.css("display", "none");
 		
+	this.centerOn(oldCenter.x, oldCenter.y);
 	this.hasMoved();
 }
 

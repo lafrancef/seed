@@ -1,13 +1,36 @@
 # Read about fixtures at http://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
-one:
-  tree_id: 
-  relative_id: 1
-  part_of_speech: MyString
-  contents: MyString
+default_values: &def_node
+  tree_id: -1
+  part_of_speech: N
+  contents: Node text
+  x: 10
+  y: 10
+  type: Node
+  case_marker: false
+  theta: false
+  show_content: true
+  show_triangle: false
 
-two:
-  tree_id: 
+parent:
+  <<: *def_node
+  tree_id: 1
   relative_id: 1
-  part_of_speech: MyString
-  contents: MyString
+  part_of_speech: parent
+  
+child:
+  <<: *def_node
+  tree_id: 1
+  relative_id: 2
+  pid: 1
+  part_of_speech: child
+  
+root_1:
+  <<: *def_node
+  tree_id: 2
+  relative_id: 1
+
+root_2:
+  <<: *def_node
+  tree_id: 2
+  relative_id: 2

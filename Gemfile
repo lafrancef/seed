@@ -41,3 +41,7 @@ gem 'tzinfo-data', platforms: [:mingw, :mswin]
 gem 'rails_12factor', group: :production
 
 gem 'figaro'
+
+# Testing gems
+gem 'capybara'
+gem 'poltergeist'

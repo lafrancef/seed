@@ -1,10 +1,14 @@
+require "seed_exceptions"
+
 class Tree < ActiveRecord::Base
 	has_many :nodes
 	
 	def root
-		root = nodes.where('pid is null')
-		if root.length != 1
-			raise 'There should only be one root.'
+		root = nodes.where(pid: nil)
+		if root.length > 1
+			raise Seed::TreeError, "There should be exactly one root, not #{root.length}."
+		elsif root.length == 0
+			return nil
 		end
 		
 		return root[0]
@@ -19,6 +23,10 @@ class Tree < ActiveRecord::Base
 	end
 	
 	def node_str (node)
+		if node.nil?
+			return ''
+		end
+	
 		res = '[' + node.part_of_speech
 		if self.leaf?(node)
 			# Normal node; add contents and potential trace identifier
@@ -50,15 +58,11 @@ class Tree < ActiveRecord::Base
 	
 	def parse_node (src, pid, next_node_id)
 		
-		match_pos = src.match(/^\[\s*(\w+)\s*/)
-		if match_pos.nil?
-			raise "No part of speech"
-		end
-
+		match_pos = src.match(/^\[\s*(\w*)\s*/)
 		node = Node.new
 		node.relative_id = next_node_id
 		node.pid = pid
-		node.type = "Node"
+		node.type = 'Node'
 		node.part_of_speech = match_pos[1]
 
 		node.x = 0
@@ -66,6 +70,9 @@ class Tree < ActiveRecord::Base
 
 		node.theta = false
 		node.case_marker = false
+		
+		node.show_content = false
+		node.show_triangle = false
 
 		if src[match_pos.end(0)] == '['
 			self.nodes << node
@@ -88,21 +95,29 @@ class Tree < ActiveRecord::Base
 						next_node_id += self.parse_node(src.slice((start..i)), node.relative_id, next_node_id + 1)
 						new_subtree = true
 					elsif balance < 0
-						raise "Unmatched bracket"
+						raise Seed::TreeParseError, "Unmatched bracket"
 					end
 				end
 			end
-
+			
+			if balance > 0
+				raise Seed::TreeParseError, "Unmatched bracket"
+			end
 			return next_node_id
 
 		else # This is normally a leaf
 			# Obtain the contents
 			match_contents = src[match_pos.end(0), src.length - match_pos.end(0)].match(/(.*)\]/)
 			if match_contents.nil?
-				raise "Unmatched bracket"
+				raise Seed::TreeParseError, "Unmatched bracket"
 			end
-
+			
+			if match_contents[1].include? "[" or match_contents[1].include? "]"
+				raise Seed::TreeParseError
+			end
+			
 			node.contents = match_contents[1]
+			node.show_content = true
 			self.nodes << node
 
 			return 1
@@ -113,12 +128,17 @@ class Tree < ActiveRecord::Base
 	def parse_txt (src)
 		src.rstrip!
 		src.lstrip!
-
+		
+		# Parsing nothing is a no-op
+		if src.empty?
+			return
+		end
+		
 		match_data = src.match(/^\[(.)*\]$/)
 		if not match_data.nil?
 			self.parse_node(match_data[0], nil, 0)
 		else
-			raise "Parse error"
+			raise Seed::TreeParseError, "Parse error"
 		end
 	end
 end
