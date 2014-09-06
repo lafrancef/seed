@@ -96,9 +96,14 @@ class TreesController < ApplicationController
 		end
 		
 		def get_new_id
-			id_file = File.open (Rails.root + "userid/userid.txt"), "r+"
-			id = id_file.read.to_i
-			id_file.close
+			begin
+				id_file = File.open (Rails.root + "userid/userid.txt"), "r"
+				id = id_file.read.to_i
+				id_file.close
+			rescue
+				id = 0
+			end
+
 			id_file = File.open (Rails.root + "userid/userid.txt"), "w"
 			id_file.write (id + 1).to_s
 			id_file.close
