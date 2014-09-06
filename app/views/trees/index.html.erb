@@ -1,0 +1,17 @@
+<h1>Seed - Your trees</h1>
+
+<% if @trees.nil? %>
+	<p>You have no trees yet.</p>
+<% else %>
+	<p>
+		<ul>
+			<% @trees.each do |tree| %>
+			<li>
+				<%= link_to tree.name, tree%>
+			</li>
+			<% end %>
+		</ul>
+	</p>
+<% end %>
+
+<p>Click <%= link_to 'here', new_tree_path %> to create a new tree.</p>

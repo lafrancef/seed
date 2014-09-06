@@ -130,7 +130,47 @@ var middle = function(n) {
 		return n + 0.5;
 }
 
+function updateMainCanvasHeight() {
+	var menu = document.getElementById("operationsMenuOuter");
+	//25: arbitrary margin at the bottom
+	var available = window.innerHeight - menu.getBoundingClientRect().bottom - 25;
+	
+	$("#mainCanvas").css("height", available + "px");
+}
+
+function maybeResizeCanvas(node) {
+	var RESIZE_MARGIN = 5, RESIZE_BUFFER = 100;
+	var maxRight = -1, maxBottom = -1;
+	var w = KinSTAGE.width(), h = KinSTAGE.height();
+	
+	if(node == undefined) {
+		allNodes(function(n) {
+			var right = n.getDimensions().x + n.getTopLeft().left;
+			if(right > maxRight)
+				maxRight = right;
+				
+			var bottom = n.getDimensions().y + n.getTopLeft().top;
+			if(bottom > maxBottom)
+				maxBottom = bottom;
+		});
+	} else {
+		maxRight = node.getDimensions().x + node.getTopLeft().left;
+		maxBottom = node.getDimensions().y + node.getTopLeft().top;
+	}
+
+	if(maxRight + RESIZE_MARGIN > w)
+		KinSTAGE.width(maxRight + RESIZE_BUFFER);
+		
+	if(maxBottom + RESIZE_MARGIN > h)
+		KinSTAGE.height(maxBottom + RESIZE_BUFFER);
+}
+
 $(window).load(function(){
+
+updateMainCanvasHeight();
+
+$(window).resize(updateMainCanvasHeight);
+
 $mainCanvas = $( "#mainCanvas" );
 var mainCanvas = document.getElementById("mainCanvas");
 var mainCanvasPos = mainCanvas.getBoundingClientRect();

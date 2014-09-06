@@ -141,6 +141,7 @@ BasicNode.prototype.hasMoved = function() {
 		NODES[child].parentMoved();
 		
 	this.signalModification();
+	maybeResizeCanvas(this);
 }
 
 BasicNode.prototype.startDragging = function(ev, ui) {
@@ -190,7 +191,7 @@ BasicNode.prototype.drag = function(ev, ui) {
 			maxLeft = newLeft;
 	});
 	
-	//Move everything
+	//Move everything. For mass drag, don't call move()
 	allSelectedNodes(function(currentNode) {
 		if(currentNode == me)
 			return;
@@ -199,15 +200,6 @@ BasicNode.prototype.drag = function(ev, ui) {
 		el.css(el.data("newPos"));
 		currentNode.hasMoved();
 	});
-	
-	//Resize the Kinetic stage if some nodes are getting close to going out of bounds
-	var h = KinSTAGE.height(), w = KinSTAGE.width();
-	if(maxTop + this.getDimensions().y + 5 > h) {
-		KinSTAGE.height(h + 300);
-	}
-	if(maxLeft + this.getDimensions().x + 5 > w) {
-		KinSTAGE.width(w + 300);
-	}
 }
 
 BasicNode.prototype.dblClick = function(e) {

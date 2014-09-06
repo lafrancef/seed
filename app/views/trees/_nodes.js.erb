@@ -143,7 +143,7 @@ Node.prototype.spawnChild = function(isTrace) {
 	if(isTrace) {
 		newNode = new Trace({id: ID_COUNTER, x: 10, y: 10, traceId: Trace.generateId()});
 	} else {
-		newNode = new Node({id: ID_COUNTER, x: 10, y: 10});
+		newNode = new Node({id: ID_COUNTER, x: 10, y: 10, showContent: true, showTriangle: false});
 	}
 	newNode.setParent(this.id);
 	this._chids[newNode.id] = true;
@@ -201,7 +201,7 @@ Trace.prototype = new BasicNode();
 Trace.prototype.constructor = Trace;
 function Trace(opts) {
 	this.basicInit(opts.id, opts.theta, opts.caseMarker);
-	this.traceId = opts.traceIdx;
+	this.traceId = opts.traceId;
 	this._traceeId = undefined;
 	
 	var node = this.createSkeleton(opts.pos);

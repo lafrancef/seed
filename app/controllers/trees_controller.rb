@@ -1,5 +1,14 @@
 class TreesController < ApplicationController
 	
+	#List the user's trees
+	def index
+		if cookies[:seed_id].nil?
+			cookies.permanent[:seed_id] = get_new_id
+		else
+			@trees = Tree.where(uid: cookies[:seed_id])
+		end
+	end
+	
 	# Show the form for creating a new tree
 	def new
 	end
@@ -8,6 +17,7 @@ class TreesController < ApplicationController
 	def create
 		@tree = Tree.new
 		@tree.name = tree_params[:name]
+		@tree.uid = cookies[:seed_id]
 		session[:import] = false
 		
 		if not (tree_params[:brackets].nil? or tree_params[:brackets].empty?)
@@ -83,5 +93,16 @@ class TreesController < ApplicationController
 	private
 		def tree_params
 			params.require(:tree).permit(:name, :brackets)
+		end
+		
+		def get_new_id
+			id_file = File.open (Rails.root + "userid/userid.txt"), "r+"
+			id = id_file.read.to_i
+			id_file.close
+			id_file = File.open (Rails.root + "userid/userid.txt"), "w"
+			id_file.write (id + 1).to_s
+			id_file.close
+			
+			return id
 		end
 end
