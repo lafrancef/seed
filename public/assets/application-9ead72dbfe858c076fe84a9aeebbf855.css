@@ -1,0 +1,103 @@
+/* line 7, C:/tdp/seed/app/assets/stylesheets/trees.css.scss */
+#mainCanvas .ui-selecting {
+  border: 2px solid #AAA;
+}
+
+/* line 8, C:/tdp/seed/app/assets/stylesheets/trees.css.scss */
+#mainCanvas .ui-selected {
+  border: 2px solid aquamarine;
+}
+
+/* line 10, C:/tdp/seed/app/assets/stylesheets/trees.css.scss */
+body {
+  margin: 8px;
+}
+
+/* line 14, C:/tdp/seed/app/assets/stylesheets/trees.css.scss */
+#operationsMenuOuter {
+  height: 50px;
+  position: relative;
+  margin-bottom: 4px;
+}
+
+/* line 20, C:/tdp/seed/app/assets/stylesheets/trees.css.scss */
+#operationsMenuInner {
+  position: absolute;
+  height: 50px;
+  top: 50%;
+  margin-top: -12.5px;
+}
+
+/* line 27, C:/tdp/seed/app/assets/stylesheets/trees.css.scss */
+#mainCanvas {
+  position: relative;
+  overflow: auto;
+  height: 300px;
+  z-index: 50;
+  background-color: #e8ffff;
+}
+
+/* line 35, C:/tdp/seed/app/assets/stylesheets/trees.css.scss */
+.zone {
+  border: solid 2px #cccccc;
+  border-radius: 4px;
+  padding: 3px;
+}
+
+/* line 41, C:/tdp/seed/app/assets/stylesheets/trees.css.scss */
+.node {
+  position: absolute;
+  margin: 0;
+  padding: 5px;
+  border: solid 2px #FFFFFF;
+  width: 50px;
+  background-color: #FFFFFF;
+  text-align: center;
+  display: table;
+}
+
+/* line 52, C:/tdp/seed/app/assets/stylesheets/trees.css.scss */
+.trace {
+  font-style: italic;
+}
+
+/* line 56, C:/tdp/seed/app/assets/stylesheets/trees.css.scss */
+.thetaRole {
+  font-style: italic;
+  color: #6495ED;
+}
+
+/* line 61, C:/tdp/seed/app/assets/stylesheets/trees.css.scss */
+.caseMarker {
+  font-style: italic;
+  color: #FF8C00;
+}
+
+/* line 66, C:/tdp/seed/app/assets/stylesheets/trees.css.scss */
+.editable {
+  white-space: nowrap;
+}
+
+/* Used for the selection lasso */
+/* line 71, C:/tdp/seed/app/assets/stylesheets/trees.css.scss */
+.ui-selectable-helper {
+  position: absolute;
+  z-index: 100;
+  border: 1px dotted black;
+}
+/*
+ * This is a manifest file that'll be compiled into application.css, which will include all the files
+ * listed below.
+ *
+ * Any CSS and SCSS file within this directory, lib/assets/stylesheets, vendor/assets/stylesheets,
+ * or vendor/assets/stylesheets of plugins, if any, can be referenced here using a relative path.
+ *
+ * You're free to add application-wide styles to this file and they'll appear at the bottom of the
+ * compiled file so the styles you add here take precedence over styles defined in any styles
+ * defined in the other CSS/SCSS files in this directory. It is generally better to create a new
+ * file per style scope.
+ *
+
+
+ */
+
