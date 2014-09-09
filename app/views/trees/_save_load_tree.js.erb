@@ -44,6 +44,8 @@ Saver.prototype.signalModification = function(id) {
 	} else if(!(id in this._dirty)) { //Otherwise add them to the normal batch
 		this._dirty[id] = true;
 		this._dirtyCount++;
+		$("#btnSave")[0].disabled = undefined;
+		$("#btnSave")[0].value = "Save  ";
 		if(this._dirtyCount > 10) //If more than 10 nodes were modified, save
 			this.saveTree();
 	}
@@ -92,9 +94,9 @@ Saver.prototype.resetIdle = function() {
 	this._tmrIdle = 0;
 }
 
-var saveTime = 1;
 Saver.prototype.saveSuccess = function(data, status, xhr) {
-	$("#saveMessage")[0].innerHTML = "Save " + (saveTime++);
+	$("#btnSave")[0].value = "Saved";
+	$("#btnSave")[0].disabled = true;
 
 	this._lastSave = 0;
 	this._dirtyCount = 0;

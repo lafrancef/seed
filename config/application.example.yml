@@ -1,0 +1,6 @@
+# Remove the ".example" from this filename. Variable names are self-explanatory
+
+CONTACT_EMAIL: ""
+DATABASE_PWD: ""
+DEVELOPMENT_SECRET: ""
+TEST_SECRET: ""

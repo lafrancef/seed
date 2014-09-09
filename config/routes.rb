@@ -3,6 +3,9 @@ Rails.application.routes.draw do
 
   root 'trees#index'
   
+  get '/contact' => 'static_pages#contact'
+  post '/contact' => 'static_pages#sendmail'
+  
   # The priority is based upon order of creation: first created -> highest priority.
   # See how all your routes lay out with "rake routes".
 

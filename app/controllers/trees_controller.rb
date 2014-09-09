@@ -37,7 +37,6 @@ class TreesController < ApplicationController
 			format.html
 			format.txt { render plain: @tree.export_txt }
 		end
-		# TODO Do something if we can't find the tree
 	end
 	
 	# Update (save) the tree
